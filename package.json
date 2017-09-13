@@ -1,6 +1,6 @@
 {
   "name": "bat-client",
-  "version": "0.0.0",
+  "version": "0.9.0",
   "description": "An example of client code for the BAT.",
   "main": "index.js",
   "scripts": {
@@ -21,11 +21,15 @@
   },
   "homepage": "https://github.com/brave-intl/bat-client",
   "dependencies": {
-    "bitgo": "^3.4.4",
+    "bitgo": "^4.2.2",
     "joi": "^10.6.0",
-    "bat-publisher": "^0.9.0",
+    "bat-publisher": "^0.9.1",
+    "json-stable-stringify": "1.0.1",
+    "niceware": "1.0.4",
     "node-anonize2-relic-emscripten": "^0.3.3",
     "random-lib": "2.1.0",
+    "text-encoding": "0.6.4",
+    "tweetnacl": "1.0.0",
     "underscore": "1.8.3",
     "uuid": "3.1.0"
   },
@@ -34,14 +38,16 @@
     "npm": "4.2.0"
   },
   "devDependencies": {
-    "del": "^3.0.0",
-    "gulp": "^3.9.0",
-    "gulp-standard": "^10.0.0",
-    "nsp": "^2.2.0",
-    "run-sequence": "^2.0.0",
-    "standard": "10.0.2"
+    "babel-eslint": "^7.2.3",
+    "npm-check-updates": "^2.12.1",
+    "nsp": "^2.8.0",
+    "standard": "10.0.3"
   },
   "standard": {
-    "ignore": [ "bootstrap.js" ]
+    "ignore": [
+      "bootstrap.js",
+      "config.js"
+    ],
+    "parser": "babel-eslint"
   }
 }
