@@ -538,7 +538,8 @@ Client.prototype._registerPersona = function (callback) {
             headers: {
               digest: 'SHA-256=' + crypto.createHash('sha256').update(octets).digest('base64'),
               signature: 'keyId="primary",algorithm="ed25519",headers="digest",signature="' +
-                Buffer.from(tweetnacl.sign(new TextEncoder().encode(octets), keypair.secretKey)).toString('base64') + '"'
+                Buffer.from(tweetnacl.sign.detached(new TextEncoder().encode(octets), keypair.secretKey)).toString('base64') +
+                '"'
             },
             body: body,
             octets: octets
@@ -638,10 +639,11 @@ Client.prototype._currentReconcile = function (callback) {
         'balance', 'buyURL', 'recurringURL', 'satoshis', 'altcurrency', 'probi'
       ]),
         { address: self.state.properties.wallet.address,
+          addresses: self.state.properties.wallet.addresses,
           amount: amount,
           currency: currency
         })
-      self.state.paymentInfo[body.altcurrency ? body.altcurrency.toLowerCase() : 'btc'] = alt
+      self.state.paymentInfo[body.altcurrency ? body.altcurrency : 'btc'] = alt
 
       delayTime = random.randomInt({ min: msecs.second, max: (self.options.debugP ? 1 : 10) * msecs.minute })
       self._log('_currentReconcile', { reason: 'balance < btc', balance: body.balance, alt: alt, delayTime: delayTime })
@@ -696,7 +698,7 @@ Client.prototype._currentReconcile = function (callback) {
           headers: {
             digest: 'SHA-256=' + crypto.createHash('sha256').update(octets).digest('base64'),
             signature: 'keyId="primary",algorithm="ed25519",headers="digest",signature="' +
-              Buffer.from(tweetnacl.sign(new TextEncoder().encode(octets), keypair.secretKey)).toString('base64') + '"'
+              Buffer.from(tweetnacl.sign.detached(new TextEncoder().encode(octets), keypair.secretKey)).toString('base64') + '"'
           },
           body: body.unsignedTx,
           octets: octets

@@ -2,6 +2,7 @@
 
 var fs = require('fs')
 var path = require('path')
+var underscore = require('underscore')
 var url = require('url')
 var uuid = require('uuid')
 
@@ -85,13 +86,27 @@ var callback = function (err, result, delayTime) {
       if (err) return console.log('wallet properties error=' + err.toString())
 
       console.log('!!! wallet properties=' + JSON.stringify(body, null, 2))
+      if (body.balance > 10.0) {
+        setTimeout(() => {
+          client.setTimeUntilReconcile(underscore.now(), (err, result) => {
+            if (err) return console.log('setTimeUntilReconcile error=' + err.toString())
+
+            console.log('preparing for reconciliation')
+          }, 0)
+        })
+      }
     })
   }
 
   if (result.paymentInfo) {
     console.log(JSON.stringify(result.paymentInfo, null, 2))
-    console.log('\nplease click here for payment: bitcoin:' + result.paymentInfo.address + '?amount=' +
-                result.paymentInfo.btc + '\n')
+    if (result.paymentInfo.address) {
+      console.log('\nplease click here for payment: bitcoin:' + result.paymentInfo.address + '?amount=' +
+                  result.paymentInfo.btc + '\n')
+    } else {
+      console.log('\nplease click here for payment: ether:' + result.paymentInfo.addresses.BAT + '?token=BAT&amount=' +
+                  result.paymentInfo.BAT + '\n')
+    }
   }
   delete result.publishersV2
   delete result.rulesetV2
