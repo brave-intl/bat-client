@@ -88,6 +88,10 @@ var callback = function (err, result, delayTime) {
       console.log('!!! wallet properties=' + JSON.stringify(body, null, 2))
       if (body.balance > 10.0) {
         setTimeout(() => {
+          const now = underscore.now()
+
+          if (result.reconcileStamp < now) return console.log('already preparing for reconciliation')
+
           client.setTimeUntilReconcile(underscore.now(), (err, result) => {
             if (err) return console.log('setTimeUntilReconcile error=' + err.toString())
 
@@ -100,12 +104,12 @@ var callback = function (err, result, delayTime) {
 
   if (result.paymentInfo) {
     console.log(JSON.stringify(result.paymentInfo, null, 2))
-    if (result.paymentInfo.address) {
-      console.log('\nplease click here for payment: bitcoin:' + result.paymentInfo.address + '?amount=' +
-                  result.paymentInfo.btc + '\n')
-    } else {
+    if (result.paymentInfo.addresses) {
       console.log('\nplease click here for payment: ether:' + result.paymentInfo.addresses.BAT + '?token=BAT&amount=' +
                   result.paymentInfo.BAT + '\n')
+    } else {
+      console.log('\nplease click here for payment: bitcoin:' + result.paymentInfo.address + '?amount=' +
+                  result.paymentInfo.btc + '\n')
     }
   }
   delete result.publishersV2

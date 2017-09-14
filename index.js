@@ -245,8 +245,10 @@ Client.prototype.getWalletAddresses = function () {
   return addresses
 }
 
-Client.prototype.getWalletPassphrase = function () {
-  const wallet = this.state.properties && this.state.properties.wallet
+Client.prototype.getWalletPassphrase = function (state) {
+  if (!state) state = this.state
+
+  const wallet = state.properties && state.properties.wallet
 
   this._log('getWalletPassphrase')
 
@@ -638,7 +640,9 @@ Client.prototype._currentReconcile = function (callback) {
       self.state.paymentInfo = underscore.extend(underscore.pick(body, [
         'balance', 'buyURL', 'recurringURL', 'satoshis', 'altcurrency', 'probi'
       ]),
-        { address: self.state.properties.wallet.address,
+        {
+          address: self.state.properties.wallet.addresses && self.state.properties.wallet.addresses.BAT
+            ? self.state.properties.wallet.addresses.BAT : self.state.properties.wallet.address,
           addresses: self.state.properties.wallet.addresses,
           amount: amount,
           currency: currency
