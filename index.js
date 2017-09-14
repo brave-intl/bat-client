@@ -842,8 +842,11 @@ Client.prototype._commitBallot = function (ballot, transaction, callback) {
 }
 
 Client.prototype._log = function (who, args) {
-  if (this.options.debugP) console.log(JSON.stringify({ who: who, what: args || {}, when: underscore.now() }, null, 2))
-  if (this.options.loggingP) this.logging.push({ who: who, what: args || {}, when: underscore.now() })
+  const debugP = this.options ? this.options.debugP : false
+  const loggingP = this.options ? this.options.loggingP : false
+
+  if (debugP) console.log(JSON.stringify({ who: who, what: args || {}, when: underscore.now() }, null, 2))
+  if (loggingP) this.logging.push({ who: who, what: args || {}, when: underscore.now() })
 }
 
 Client.prototype._updateRules = function (callback) {
