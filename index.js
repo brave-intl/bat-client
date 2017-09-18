@@ -9,8 +9,8 @@ const bitgo = new (require('bitgo')).BitGo({ env: 'prod' })
 const Joi = require('joi')
 const niceware = require('niceware')
 const random = require('random-lib')
+const { sign } = require('@uphold/http-signature')
 const stringify = require('json-stable-stringify')
-const TextEncoder = require('text-encoding').TextEncoder
 const tweetnacl = require('tweetnacl')
 const underscore = require('underscore')
 const uuid = require('uuid')
@@ -534,15 +534,18 @@ Client.prototype._registerPersona = function (callback) {
           publicKey: self.uint8tohex(keypair.publicKey)
         }
         octets = stringify(body)
+        var headers = {
+          digest: 'SHA-256=' + crypto.createHash('sha256').update(octets).digest('base64')
+        }
+        headers['signature'] = sign({
+          headers: headers,
+          keyId: 'primary',
+          secretKey: self.uint8tohex(keypair.secretKey)
+        }, { algorithm: 'ed25519' })
         payload = {
           requestType: 'httpSignature',
           request: {
-            headers: {
-              digest: 'SHA-256=' + crypto.createHash('sha256').update(octets).digest('base64'),
-              signature: 'keyId="primary",algorithm="ed25519",headers="digest",signature="' +
-                Buffer.from(tweetnacl.sign.detached(new TextEncoder().encode(octets), keypair.secretKey)).toString('base64') +
-                '"'
-            },
+            headers: headers,
             body: body,
             octets: octets
           }
@@ -696,14 +699,18 @@ Client.prototype._currentReconcile = function (callback) {
     if (body.altcurrency) {
       keypair = { secretKey: self.hextouint8(self.state.properties.wallet.keyinfo.secretKey) }
       octets = stringify(body.unsignedTx)
+      var headers = {
+        digest: 'SHA-256=' + crypto.createHash('sha256').update(octets).digest('base64')
+      }
+      headers['signature'] = sign({
+        headers: headers,
+        keyId: 'primary',
+        secretKey: self.uint8tohex(keypair.secretKey)
+      }, { algorithm: 'ed25519' })
       payload = {
         requestType: 'httpSignature',
         signedTx: {
-          headers: {
-            digest: 'SHA-256=' + crypto.createHash('sha256').update(octets).digest('base64'),
-            signature: 'keyId="primary",algorithm="ed25519",headers="digest",signature="' +
-              Buffer.from(tweetnacl.sign.detached(new TextEncoder().encode(octets), keypair.secretKey)).toString('base64') + '"'
-          },
+          headers: headers,
           body: body.unsignedTx,
           octets: octets
         }
