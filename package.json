@@ -1,6 +1,6 @@
 {
   "name": "bat-client",
-  "version": "0.9.4",
+  "version": "0.9.5",
   "description": "An example of client code for the BAT.",
   "main": "index.js",
   "scripts": {
@@ -23,7 +23,7 @@
   },
   "homepage": "https://github.com/brave-intl/bat-client",
   "dependencies": {
-    "@uphold/http-signature": "github:uphold/http-signature",
+    "@uphold/http-request-signature": "github:uphold/http-request-signature",
     "bat-publisher": "^0.9.1",
     "bitgo": "^4.4.1",
     "joi": "^11.0.1",
