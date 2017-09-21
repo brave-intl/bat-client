@@ -498,6 +498,43 @@ Client.prototype.recoverWallet = function (recoveryId, passPhrase, callback) {
   })
 }
 
+Client.prototype.transition = function (newPaymentId, callback) {
+  const self = this
+
+  const prefix = '/v1/wallet/'
+  let path
+
+  path = prefix + self.state.properties.wallet.paymentId + '/transition/' + newPaymentId
+  self.roundtrip({ path: path, method: 'GET' }, function (err, response, body) {
+    let wallet
+
+    self._log('transition', { method: 'GET', path: prefix + '.../transition/...', errP: !!err })
+    if (err) return callback(err)
+
+    if (!body.unsignedTx) return callback(new Error('expecting an unsignedTx'))
+
+    wallet = bitgo.newWalletObject({ wallet: { id: self.state.properties.wallet.address } })
+    wallet.signTransaction({ transactionHex: body.unsignedTx.transactionHex,
+      unspents: body.unsignedTx.unspents,
+      keychain: self.state.properties.wallet.keychains.user
+    }, function (err, signedTx) {
+      let payload
+
+      self._log('transition', { wallet: 'signTransaction', errP: !!err })
+      if (err) return callback(err)
+
+      path = prefix + self.state.properties.wallet.paymentId + '/transition'
+      payload = { signedTx: signedTx.tx }
+      self.roundtrip({ path: path, method: 'PUT', payload: payload }, function (err, response, body) {
+        self._log('transition', { method: 'PUT', path: prefix + '...', errP: !!err })
+        if (err) return callback(err)
+
+        callback(null)
+      })
+    })
+  })
+}
+
 /*
  *
  * internal functions
