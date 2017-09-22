@@ -33,7 +33,7 @@ const Client = function (personaId, options, state) {
     { server:
       { v1: 'https://ledger.brave.com',
         v2: 'https://ledger-staging.brave.com'
-      }[self.options.version] || 'ledger.mercury.basicattentiontoken.org',
+      }[self.options.version] || 'ledger-staging.mercury.basicattentiontoken.org',
       prefix: '/' + self.options.version
     })
   underscore.keys(self.options).forEach(function (option) {
