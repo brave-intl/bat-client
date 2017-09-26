@@ -1,13 +1,13 @@
 {
   "name": "bat-client",
-  "version": "0.9.10",
+  "version": "0.9.11",
   "description": "An example of client code for the BAT.",
   "main": "index.js",
   "scripts": {
     "blastoff": "DEBUG=*,-babel ./blastoff.js -d -l -v -s http://127.0.0.1:3001 -p `uuidgen`",
     "touchdown": "DEBUG=*,-babel ./blastoff.js -d -l -v -s http://127.0.0.1:3001 -f ./config.json",
-    "blastoff-staging": "DEBUG=*,-babel ./blastoff.js -d -l -v -s https://ledger-staging.brave.com -p `uuidgen`",
-    "touchdown-staging": "DEBUG=*,-babel ./blastoff.js -d -l -v -s https://ledger-staging.brave.com -f ./config.json",
+    "blastoff-staging": "DEBUG=*,-babel ./blastoff.js -d -l -v -s https://ledger-station.mercury.basicattentiontoken.org -p `uuidgen`",
+    "touchdown-staging": "DEBUG=*,-babel ./blastoff.js -d -l -v -s https://ledger-station.mercury.basicattentiontoken.org -f ./config.json",
     "lint": "standard",
     "test": "npm run test-security",
     "test-security": "nsp check"

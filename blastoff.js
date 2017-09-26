@@ -57,7 +57,7 @@ while (argv.length > 0) {
 if ((!configFile) && (!personaID)) usage()
 if (!configFile) configFile = 'config.json'
 
-if (!server) server = process.env.SERVER || 'https://ledger-staging.brave.com'
+if (!server) server = process.env.SERVER || 'https://ledger-staging.mercury.basicattentiontoken.org'
 if (server.indexOf('http') !== 0) server = 'https://' + server
 server = url.parse(server)
 

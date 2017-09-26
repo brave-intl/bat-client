@@ -32,7 +32,7 @@ const Client = function (personaId, options, state) {
   underscore.defaults(self.options,
     { server:
       { v1: 'https://ledger.brave.com',
-        v2: 'https://ledger-staging.brave.com'
+        v2: 'https://ledger-staging.mercury.basicattentiontoken.org'
       }[self.options.version] || 'ledger-staging.mercury.basicattentiontoken.org',
       prefix: '/' + self.options.version
     })
