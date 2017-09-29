@@ -466,7 +466,7 @@ Client.prototype.recoverWallet = function (recoveryId, passPhrase, callback) {
 
       if (!body.addresses) return callback(new Error('invalid response'))
 
-      self.state.properties.wallet = underscore.defaults({ paymentId: recoveryId, keyinfo: keyinfo },
+      self.state.properties.wallet = underscore.defaults({ paymentId: recoveryId, passphrase: passPhrase, keyinfo: keyinfo },
                                                          underscore.pick(body, [ 'addresses', 'altcurrency' ]))
 
       return callback(null, self.state, underscore.omit(body, [ 'addresses', 'altcurrency' ]))
