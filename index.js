@@ -282,30 +282,28 @@ Client.prototype.getWalletProperties = function (amount, currency, callback) {
   self._log('getWalletProperties', { errP: errP })
   if (errP) throw new Error('Ledger client initialization incomplete.')
 
-  if ((!self.state.currentReconcile) && (self.state.reconcileStamp) && (self.state.reconcileStamp <= underscore.now())) {
+  if ((!self.state.currentReconcile) && (self.state.reconcileStamp) && (self.state.reconcileStamp > underscore.now())) {
     cardId = self.state.properties.wallet.addresses && self.state.properties.wallet.addresses.CARD_ID
   }
   if (cardId) {
-    balance.getBalance(cardId, self.options, (err, provider, result) => {
-      self._log('getWalletProperties', {
-        method: 'GET',
-        path: 'getBalance' + (amount ? ('&amount=' + amount) : '') + (currency ? ('&currency=' + currency) : ''),
-        errP: !!err
-      })
+    balance.getProperties(cardId, self.options, (err, provider, result) => {
+      self._log('getWalletProperties', { method: 'GET', path: 'getProperties', errP: !!err })
       if (err) return callback(err)
 
+      if (!result.addresses) result.addresses = underscore.clone(self.state.properties.wallet.addresses)
       callback(null, result)
     })
     return
   }
 
-  path = prefix + self.state.properties.wallet.paymentId + '?balance=true'
+  path = prefix + self.state.properties.wallet.paymentId + '?balance=true&refresh=true'
   if (amount) path += '&amount=' + amount
   if (currency) path += '&currency=' + currency
   self.roundtrip({ path: path, method: 'GET' }, function (err, response, body) {
     self._log('getWalletProperties', {
       method: 'GET',
-      path: prefix + '...?balance=true' + (amount ? ('&amount=' + amount) : '') + (currency ? ('&currency=' + currency) : ''),
+      path: prefix + '...?balance=true&refresh=true' + (amount ? ('&amount=' + amount) : '') + (currency ? ('&currency=' +
+                                                                                                            currency) : ''),
       errP: !!err
     })
     if (err) return callback(err)
