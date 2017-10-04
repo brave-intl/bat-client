@@ -5,6 +5,7 @@ const path = require('path')
 const url = require('url')
 
 const anonize = require('node-anonize2-relic-emscripten')
+const balance = require('bat-balance')
 const bitgo = new (require('bitgo')).BitGo({ env: 'prod' })
 const Joi = require('joi')
 const niceware = require('niceware')
@@ -265,7 +266,7 @@ Client.prototype.getWalletProperties = function (amount, currency, callback) {
   const self = this
 
   const prefix = self.options.prefix + '/wallet/'
-  let errP, path
+  let cardId, errP, path
 
   if (typeof amount === 'function') {
     callback = amount
@@ -281,6 +282,23 @@ Client.prototype.getWalletProperties = function (amount, currency, callback) {
   errP = (!self.state.properties) || (!self.state.properties.wallet)
   self._log('getWalletProperties', { errP: errP })
   if (errP) throw new Error('Ledger client initialization incomplete.')
+
+  if ((!self.state.currentReconcile) && (self.state.reconcileStamp) && (self.state.reconcileStamp <= underscore.now())) {
+    cardId = self.state.properties.wallet.addresses && self.state.properties.wallet.addresses.CARD_ID
+  }
+  if (cardId) {
+    balance.getBalance(cardId, self.options, (err, provider, result) => {
+      self._log('getWalletProperties', {
+        method: 'GET',
+        path: 'getBalance' + (amount ? ('&amount=' + amount) : '') + (currency ? ('&currency=' + currency) : ''),
+        errP: !!err
+      })
+      if (err) return callback(err)
+
+      callback(null, result)
+    })
+    return
+  }
 
   path = prefix + self.state.properties.wallet.paymentId + '?balance=true'
   if (amount) path += '&amount=' + amount
