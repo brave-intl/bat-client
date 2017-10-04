@@ -46,9 +46,8 @@ const Client = function (personaId, options, state) {
 
     self._innerTrip = self.options.roundtrip.bind(self)
     self.roundtrip = function (params, callback) { self._innerTrip(params, self.options, callback) }
-  } else {
-    self.roundtrip = self._roundTrip
-  }
+  } else if (self.options.debugP) self.roundtrip = self._roundTrip
+  else throw new Error('security audit requires options.roundtrip for non-debug use')
   if (self.options.debugP) console.log(JSON.stringify(self.options, null, 2))
 
   self.state = underscore.defaults(state || {}, { personaId: personaId, options: self.options, ballots: [], transactions: [] })
