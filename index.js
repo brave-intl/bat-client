@@ -265,7 +265,7 @@ Client.prototype.getWalletProperties = function (amount, currency, callback) {
   const self = this
 
   const prefix = self.options.prefix + '/wallet/'
-  let cardId, errP, path
+  let cardId, errP, path, suffix
 
   if (typeof amount === 'function') {
     callback = amount
@@ -296,16 +296,10 @@ Client.prototype.getWalletProperties = function (amount, currency, callback) {
     return
   }
 
-  path = prefix + self.state.properties.wallet.paymentId + '?balance=true&refresh=true'
-  if (amount) path += '&amount=' + amount
-  if (currency) path += '&currency=' + currency
+  suffix = '?balance=true&' + self._getWalletParams({ amount: amount, currency: currency })
+  path = prefix + self.state.properties.wallet.paymentId + suffix
   self.roundtrip({ path: path, method: 'GET' }, function (err, response, body) {
-    self._log('getWalletProperties', {
-      method: 'GET',
-      path: prefix + '...?balance=true&refresh=true' + (amount ? ('&amount=' + amount) : '') + (currency ? ('&currency=' +
-                                                                                                            currency) : ''),
-      errP: !!err
-    })
+    self._log('getWalletProperties', { method: 'GET', path: prefix + '...' + suffix, errP: !!err })
     if (err) return callback(err)
 
     callback(null, body)
@@ -672,17 +666,14 @@ Client.prototype._currentReconcile = function (callback) {
   const prefix = self.options.prefix + '/wallet/'
   const surveyorInfo = self.state.currentReconcile.surveyorInfo
   const viewingId = self.state.currentReconcile.viewingId
-  let fee, path, rates, wallet
+  let fee, path, rates, suffix, wallet
 
-  path = prefix + self.state.properties.wallet.paymentId + '?refresh=true' + '&amount=' + amount + '&currency=' + currency
+  suffix = '?' + self._getWalletParams({ amount: amount, currency: currency })
+  path = prefix + self.state.properties.wallet.paymentId + suffix
   self.roundtrip({ path: path, method: 'GET' }, function (err, response, body) {
     let alt, delayTime, keypair, octets, payload
 
-    self._log('_currentReconcile', {
-      method: 'GET',
-      path: prefix + '...?refresh=true&amount=' + amount + '&currency=' + currency,
-      errP: !!err
-    })
+    self._log('_currentReconcile', { method: 'GET', path: prefix + '...?' + suffix, errP: !!err })
     if (err) return callback(err)
 
     if (!body.unsignedTx) {
@@ -898,6 +889,15 @@ Client.prototype._commitBallot = function (ballot, transaction, callback) {
       callback(null, self.state, msecs.minute)
     })
   })
+}
+
+Client.prototype._getWalletParams = function (params) {
+  let result = 'refresh=true'
+
+  if (params.amount) result += '&amount=' + params.amount
+  if (params.currency) result += '&' + (params.currency === 'BAT' ? 'alt' : '') + 'currency=' + params.currency
+
+  return result
 }
 
 Client.prototype._log = function (who, args) {
