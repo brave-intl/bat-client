@@ -8,6 +8,8 @@
     "touchdown": "DEBUG=*,-babel ./blastoff.js -d -l -v -s http://127.0.0.1:3001 -f ./config.json",
     "blastoff-staging": "DEBUG=*,-babel ./blastoff.js -d -l -v -s https://ledger-staging.mercury.basicattentiontoken.org -p `uuidgen`",
     "touchdown-staging": "DEBUG=*,-babel ./blastoff.js -d -l -v -s https://ledger-staging.mercury.basicattentiontoken.org -f ./config.json",
+    "blastoff-mercury": "DEBUG=*,-babel ./blastoff.js -d -l -v -s https://ledger.mercury.basicattentiontoken.org -p `uuidgen`",
+    "touchdown-mercury": "DEBUG=*,-babel ./blastoff.js -d -l -v -s https://ledger.mercury.basicattentiontoken.org -f ./config.json",
     "lint": "standard",
     "test": "npm run test-security",
     "test-security": "nsp check"
