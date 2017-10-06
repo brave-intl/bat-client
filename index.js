@@ -3,7 +3,6 @@ const http = require('http')
 const https = require('https')
 const path = require('path')
 const url = require('url')
-const braveCrypto = require('brave-crypto')
 
 const anonize = require('node-anonize2-relic-emscripten')
 const balance = require('bat-balance')
@@ -13,14 +12,11 @@ const niceware = require('niceware')
 const random = require('random-lib')
 const { sign } = require('http-request-signature')
 const stringify = require('json-stable-stringify')
+const tweetnacl = require('tweetnacl')
 const underscore = require('underscore')
 const uuid = require('uuid')
 
 const ledgerPublisher = require('bat-publisher')
-
-const PASSPHRASE_LENGTH = 16
-const SEED_LENGTH = 32
-const HKDF_SALT = new Uint8Array([ 126, 244, 99, 158, 51, 68, 253, 80, 133, 183, 51, 180, 77, 62, 74, 252, 62, 106, 96, 125, 241, 110, 134, 87, 190, 208, 158, 84, 125, 69, 246, 207, 162, 247, 107, 172, 37, 34, 53, 246, 105, 20, 215, 5, 248, 154, 179, 191, 46, 17, 6, 72, 210, 91, 10, 169, 145, 248, 22, 147, 117, 24, 105, 12 ])
 
 const Client = function (personaId, options, state) {
   if (!(this instanceof Client)) return new Client(personaId, options, state)
@@ -249,6 +245,22 @@ Client.prototype.getWalletAddresses = function () {
   return addresses
 }
 
+Client.prototype.getWalletPassphrase = function (state) {
+  if (!state) state = this.state
+
+  const wallet = state.properties && state.properties.wallet
+
+  this._log('getWalletPassphrase')
+
+  if (!wallet) return
+
+  if ((wallet.keyinfo) && (wallet.keyinfo.secretKey)) {
+    return niceware.bytesToPassphrase(Buffer.from(this.hextouint8(wallet.keyinfo.secretKey))).join(' ')
+  }
+
+  return wallet.keychains && wallet.keychains.passphrase
+}
+
 Client.prototype.getWalletProperties = function (amount, currency, callback) {
   const self = this
 
@@ -440,99 +452,63 @@ Client.prototype.report = function () {
   if (entries.length) return entries
 }
 
-Client.prototype.generateKeypair = function () {
-  const wallet = this.state.properties && this.state.properties.wallet
-
-  if (!wallet) {
-    if (!this.state.properties) this.state.properties = {}
-
-    this.state.properties.wallet = { keyinfo: { seed: braveCrypto.getSeed(SEED_LENGTH) } }
-  } else if (!wallet.keyinfo) {
-    throw new Error('invalid wallet')
-  }
-  return this.getKeypair()
-}
-
-Client.prototype.getKeypair = function () {
-  if (this.state && this.state.properties && this.state.properties.wallet &&
-      this.state.properties.wallet.keyinfo && this.state.properties.wallet.keyinfo.seed) {
-    return braveCrypto.deriveSigningKeysFromSeed(this.state.properties.wallet.keyinfo.seed, HKDF_SALT)
-  }
-  throw new Error('invalid or uninitialized wallet')
-}
-
-Client.prototype.getWalletPassphrase = function (state) {
-  if (!state) state = this.state
-
-  const wallet = state.properties && state.properties.wallet
-
-  this._log('getWalletPassphrase')
-
-  if (!wallet) return
-
-  if ((wallet.keyinfo) && (wallet.keyinfo.seed)) {
-    return niceware.bytesToPassphrase(Buffer.from(wallet.keyinfo.seed))
-  }
-}
-
-Client.prototype.recoverKeypair = function (passPhrase) {
-  var seed
-  this._log('recoverKeypair')
-  passPhrase = passPhrase.split(' ')
-  if (passPhrase.length !== PASSPHRASE_LENGTH) {
-    throw new Error(`invalid passphrase: must be ${PASSPHRASE_LENGTH} words`)
-  }
-  try {
-    seed = niceware.passphraseToBytes(passPhrase)
-  } catch (ex) {
-    throw new Error('invalid passphrase:' + ex.toString())
-  }
-
-  if (seed && seed.length === SEED_LENGTH) {
-    if (!this.state.properties) this.state.properties = {}
-
-    this.state.properties.wallet = { keyinfo: { seed: seed } }
-  } else {
-    throw new Error('internal error, seed returned is invalid')
-  }
-  return this.getKeypair()
-}
-
 Client.prototype.recoverWallet = function (recoveryId, passPhrase, callback) {
   const self = this
-  let path, keypair
 
-  try {
-    keypair = this.recoverKeypair(passPhrase)
-  } catch (ex) {
-    return callback(ex)
-  }
+  let path
 
-  path = '/v2/wallet?publicKey=' + braveCrypto.uint8ToHex(keypair.publicKey)
+  path = '/v2/wallet/' + recoveryId
   self.roundtrip({ path: path, method: 'GET' }, function (err, response, body) {
+    let keyinfo, octets
+
+    self._log('recoverWallet', { method: 'GET', path: '/v2/wallet/...', errP: !!err })
     if (err) return callback(err)
 
     self._log('recoverWallet', body)
 
-    if (!body.paymentId) return callback(new Error('invalid response'))
+    if (body.altcurrency) {
+      try {
+        octets = niceware.passphraseToBytes(passPhrase.split(' '))
+        if (octets.length % 2) throw new Error('invalid passphrase')
+      } catch (ex) {
+        return callback(ex)
+      }
 
-    recoveryId = body.paymentId
+      keyinfo = {
+        secretKey: self.uint8tohex(new Uint8Array(octets)),
+        publicKey: self.uint8tohex(new Uint8Array(Buffer.from(octets.buffer, octets.length / 2)))
+      }
 
-    path = '/v2/wallet/' + recoveryId
+      if (!body.addresses) return callback(new Error('invalid response'))
+
+      self.state.properties.wallet = underscore.defaults({ paymentId: recoveryId, passphrase: passPhrase, keyinfo: keyinfo },
+                                                         underscore.pick(body, [ 'addresses', 'altcurrency' ]))
+
+      return callback(null, self.state, underscore.omit(body, [ 'addresses', 'altcurrency' ]))
+    }
+
+    path = '/v2/wallet/' + recoveryId + '/recover'
     self.roundtrip({ path: path, method: 'GET' }, function (err, response, body) {
-      self._log('recoverWallet', { method: 'GET', path: '/v2/wallet/...', errP: !!err })
+      self._log('recoverWallet', { method: 'GET', path: '/v2/wallet/.../recover', errP: !!err })
       if (err) return callback(err)
 
       self._log('recoverWallet', body)
 
-      if (!body.addresses) return callback(new Error('invalid response'))
+      if ((!body.address) || (!body.keychains) || (!body.keychains.user) || (!body.keychains.user.xpub) ||
+          (!body.keychains.user.encryptedXprv) || (!body.keychains.user.path)) return callback(new Error('invalid response'))
 
-      // yuck
-      const walletInfo = (self.state.properties && self.state.properties.wallet) || { }
+      try {
+        underscore.extend(body.keychains.user,
+          { xprv: bitgo.decrypt({ password: passPhrase, input: body.keychains.user.encryptedXprv }),
+            passphrase: passPhrase })
+      } catch (ex) {
+        return callback(new Error('invalid passphrase'))
+      }
 
-      self.state.properties.wallet = underscore.extend(walletInfo, { paymentId: recoveryId }, underscore.pick(body, [ 'addresses', 'altcurrency' ]))
+      self.state.properties.wallet = underscore.defaults({ paymentId: recoveryId },
+                                                         underscore.pick(body, [ 'address', 'keychains' ]))
 
-      return callback(null, self.state, underscore.omit(body, [ 'addresses', 'altcurrency' ]))
+      callback(null, self.state, underscore.omit(body, [ 'address', 'keychains' ]))
     })
   })
 }
@@ -596,18 +572,18 @@ Client.prototype._registerPersona = function (callback) {
     credential = new anonize.Credential(self.state.personaId, body.registrarVK)
 
     self.credentialRequest(credential, function (err, result) {
-      let body, keychains, keypair, octets, passphrase, payload
+      let body, keychains, keyinfo, keypair, octets, passphrase, payload
 
       if (err) return callback(err)
 
       if (result.credential) credential = new anonize.Credential(result.credential)
 
       if (self.options.version === 'v2') {
-        keypair = self.generateKeypair()
+        keypair = tweetnacl.sign.keyPair()
         body = {
           label: uuid.v4().toLowerCase(),
           currency: 'BAT',
-          publicKey: braveCrypto.uint8ToHex(keypair.publicKey)
+          publicKey: self.uint8tohex(keypair.publicKey)
         }
         octets = stringify(body)
         var headers = {
@@ -616,7 +592,7 @@ Client.prototype._registerPersona = function (callback) {
         headers['signature'] = sign({
           headers: headers,
           keyId: 'primary',
-          secretKey: braveCrypto.uint8ToHex(keypair.secretKey)
+          secretKey: self.uint8tohex(keypair.secretKey)
         }, { algorithm: 'ed25519' })
         payload = {
           requestType: 'httpSignature',
@@ -626,6 +602,7 @@ Client.prototype._registerPersona = function (callback) {
             octets: octets
           }
         }
+        keyinfo = { publicKey: body.publicKey, secretKey: self.uint8tohex(keypair.secretKey) }
       } else {
         passphrase = self.options.debugP ? 'hello world.' : uuid.v4().toLowerCase()
         keychains = { user: bitgo.keychains().create(), passphrase: passphrase }
@@ -668,15 +645,11 @@ Client.prototype._registerPersona = function (callback) {
             currency = 'USD'
           }
           fee = { currency: currency, amount: configuration.fee[currency] }
-
-          // yuck
-          const walletInfo = (self.state.properties && self.state.properties.wallet) || { }
-
           self.state.properties = { setting: 'adFree',
             fee: fee,
             days: days,
             configuration: body.contributions,
-            wallet: underscore.extend(walletInfo, body.wallet, { keychains: keychains })
+            wallet: underscore.extend(body.wallet, { keychains: keychains, keyinfo: keyinfo })
           }
           self.state.bootStamp = underscore.now()
           if (self.options.verboseP) self.state.bootDate = new Date(self.state.bootStamp)
@@ -776,7 +749,7 @@ Client.prototype._currentReconcile = function (callback) {
     fee = body.unsignedTx.fee
     rates = body.rates
     if (body.altcurrency) {
-      keypair = this.getKeypair()
+      keypair = { secretKey: self.hextouint8(self.state.properties.wallet.keyinfo.secretKey) }
       octets = stringify(body.unsignedTx)
       var headers = {
         digest: 'SHA-256=' + crypto.createHash('sha256').update(octets).digest('base64')
@@ -784,7 +757,7 @@ Client.prototype._currentReconcile = function (callback) {
       headers['signature'] = sign({
         headers: headers,
         keyId: 'primary',
-        secretKey: braveCrypto.uint8ToHex(keypair.secretKey)
+        secretKey: self.uint8tohex(keypair.secretKey)
       }, { algorithm: 'ed25519' })
       payload = {
         requestType: 'httpSignature',
@@ -1298,6 +1271,22 @@ Client.prototype.numbion = function (value) {
   }[typeof value] || function () { return 0 }
 
   return f()
+}
+
+Client.prototype.uint8tohex = function (uint8) {
+  return uint8.reduce((memo, i) => {
+    return memo + ('0' + i.toString(16)).slice(-2)
+  }, '')
+}
+
+Client.prototype.hextouint8 = function (hex) {
+  var i = 0
+  var uint8 = new Uint8Array(hex.length / 2)
+
+  return hex.match(/.{1,2}/g).reduce((memo, s) => {
+    memo[i++] = parseInt(s, 16)
+    return memo
+  }, uint8)
 }
 
 module.exports = Client
