@@ -224,6 +224,14 @@ Client.prototype.setBraveryProperties = function (properties, callback) {
   callback(null, self.state)
 }
 
+Client.prototype.getPaymentId = function () {
+  const paymentId = this.state.properties && this.state.properties.wallet && this.state.properties.wallet.paymentId
+
+  this._log('getPaymentId')
+
+  return paymentId
+}
+
 Client.prototype.getWalletAddress = function () {
   const wallet = this.state.properties && this.state.properties.wallet
 
@@ -537,6 +545,9 @@ Client.prototype.transition = function (newPaymentId, callback) {
   const prefix = '/v1/wallet/'
   let path
 
+  // TBD: when to set this...
+  if (self.busyP) return setTimeout(() => { callback(new Error('busy')) }, 0)
+
   path = prefix + self.state.properties.wallet.paymentId + '/transition/' + newPaymentId
   self.roundtrip({ path: path, method: 'GET' }, function (err, response, body) {
     let wallet
@@ -562,10 +573,14 @@ Client.prototype.transition = function (newPaymentId, callback) {
         self._log('transition', { method: 'PUT', path: prefix + '...', errP: !!err })
         if (err) return callback(err)
 
-        callback(null)
+        callback(null, underscore.pick(self.state, [ 'ballots', 'transactions', 'reconcileStamp', 'reconcileStamp' ]))
       })
     })
   })
+}
+
+Client.prototype.transitioned = function (oldState) {
+  return underscore.extend(this.state, oldState)
 }
 
 /*
