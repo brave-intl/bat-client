@@ -33,3 +33,22 @@ test('recoverWallet', async (t) => {
     })
   })
 })
+
+test('transition', async (t) => {
+  t.plan(3)
+  const oldOptions = { debugP: true, version: 'v1' }
+  const client = new Ledger(null, oldOptions)
+
+  client.sync(function () {
+    const newClient = new Ledger(null, options)
+    newClient.sync(function () {
+      const newPaymentId = newClient.getPaymentId()
+
+      client.transition(newPaymentId, function (err, properties) {
+        t.false(err)
+        t.true(properties)
+        t.true(properties.reconcileStamp)
+      })
+    })
+  })
+})

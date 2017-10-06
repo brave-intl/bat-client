@@ -36,7 +36,7 @@ const Client = function (personaId, options, state) {
                                      { version: 'v1', debugP: false, loggingP: false, verboseP: false })
   underscore.defaults(self.options,
     { server:
-      { v1: 'https://ledger.brave.com',
+      { v1: 'https://ledger-staging.brave.com',
         v2: 'https://ledger-staging.mercury.basicattentiontoken.org'
       }[self.options.version] || 'https://ledger-staging.mercury.basicattentiontoken.org',
       prefix: '/' + self.options.version
@@ -553,6 +553,13 @@ Client.prototype.transition = function (newPaymentId, callback) {
     let wallet
 
     self._log('transition', { method: 'GET', path: prefix + '.../transition/...', errP: !!err })
+
+    if (response.statusCode === 402) {
+      // 402: Payment Required - indicates the balance is too low to transfer due to fees
+      //                         no transfer from BTC to BAT is needed, the balance is equivalent to zero
+      return callback(null, underscore.pick(self.state, [ 'ballots', 'transactions', 'reconcileStamp', 'reconcileDate' ]))
+    }
+
     if (err) return callback(err)
 
     if (!body.unsignedTx) return callback(new Error('expecting an unsignedTx'))
@@ -573,7 +580,7 @@ Client.prototype.transition = function (newPaymentId, callback) {
         self._log('transition', { method: 'PUT', path: prefix + '...', errP: !!err })
         if (err) return callback(err)
 
-        callback(null, underscore.pick(self.state, [ 'ballots', 'transactions', 'reconcileStamp', 'reconcileStamp' ]))
+        callback(null, underscore.pick(self.state, [ 'ballots', 'transactions', 'reconcileStamp', 'reconcileDate' ]))
       })
     })
   })
@@ -1105,13 +1112,13 @@ Client.prototype._roundTrip = function (params, callback) {
       }
       if (Math.floor(response.statusCode / 100) !== 2) {
         self._log('_roundTrip', { error: 'HTTP response ' + response.statusCode })
-        return callback(new Error('HTTP response ' + response.statusCode))
+        return callback(new Error('HTTP response ' + response.statusCode), response, null)
       }
 
       try {
         payload = (response.statusCode !== 204) ? JSON.parse(body) : null
       } catch (err) {
-        return callback(err)
+        return callback(err, response, null)
       }
 
       try {
