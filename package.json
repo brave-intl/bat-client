@@ -1,6 +1,6 @@
 {
   "name": "bat-client",
-  "version": "0.9.19",
+  "version": "0.9.20",
   "description": "An example of client code for the BAT.",
   "main": "index.js",
   "scripts": {
@@ -11,8 +11,10 @@
     "blastoff-mercury": "DEBUG=*,-babel ./blastoff.js -d -l -v -s https://ledger.mercury.basicattentiontoken.org -p `uuidgen`",
     "touchdown-mercury": "DEBUG=*,-babel ./blastoff.js -d -l -v -s https://ledger.mercury.basicattentiontoken.org -f ./config.json",
     "lint": "standard",
-    "test": "npm run test-security",
-    "test-security": "nsp check"
+    "test": "npm run test-security && npm run test-index",
+    "test-security": "nsp check",
+    "test-index": "node test/indexTest.js",
+    "test-integration": "node test/integrationTest.js"
   },
   "repository": {
     "type": "git",
@@ -25,16 +27,16 @@
   },
   "homepage": "https://github.com/brave-intl/bat-client",
   "dependencies": {
-    "http-request-signature": "github:uphold/http-request-signature",
     "bat-balance": "^0.9.8",
     "bat-publisher": "^0.9.4",
     "bitgo": "^4.4.3",
+    "brave-crypto": "0.0.1",
+    "http-request-signature": "0.0.2",
     "joi": "^11.1.1",
     "json-stable-stringify": "1.0.1",
     "niceware": "1.0.4",
     "node-anonize2-relic-emscripten": "^0.3.3",
     "random-lib": "2.1.0",
-    "tweetnacl": "1.0.0",
     "underscore": "1.8.3",
     "uuid": "3.1.0"
   },
@@ -46,7 +48,8 @@
     "babel-eslint": "^8.0.0",
     "npm-check-updates": "^2.12.1",
     "nsp": "^2.8.0",
-    "standard": "10.0.3"
+    "standard": "10.0.3",
+    "tape": "^4.8.0"
   },
   "standard": {
     "ignore": [
