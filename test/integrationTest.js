@@ -2,7 +2,7 @@ const Ledger = require('../index.js')
 const crypto = require('brave-crypto')
 const test = require('tape')
 
-const options = { debugP: true, version: 'v2' }
+const options = { debugP: true, version: 'v2', environment: 'staging' }
 
 test('recoverWallet', async (t) => {
   t.plan(6)
@@ -36,7 +36,7 @@ test('recoverWallet', async (t) => {
 
 test('transition', async (t) => {
   t.plan(3)
-  const oldOptions = { debugP: true, version: 'v1' }
+  const oldOptions = { debugP: true, version: 'v1', environment: 'staging' }
   const client = new Ledger(null, oldOptions)
 
   client.sync(function () {

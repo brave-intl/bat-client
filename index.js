@@ -7,7 +7,7 @@ const braveCrypto = require('brave-crypto')
 
 const anonize = require('node-anonize2-relic-emscripten')
 const balance = require('bat-balance')
-const bitgo = new (require('bitgo')).BitGo({ env: 'prod' })
+const bg = require('bitgo')
 const Joi = require('joi')
 const niceware = require('niceware')
 const random = require('random-lib')
@@ -21,6 +21,14 @@ const ledgerPublisher = require('bat-publisher')
 const PASSPHRASE_LENGTH = 16
 const SEED_LENGTH = 32
 const HKDF_SALT = new Uint8Array([ 126, 244, 99, 158, 51, 68, 253, 80, 133, 183, 51, 180, 77, 62, 74, 252, 62, 106, 96, 125, 241, 110, 134, 87, 190, 208, 158, 84, 125, 69, 246, 207, 162, 247, 107, 172, 37, 34, 53, 246, 105, 20, 215, 5, 248, 154, 179, 191, 46, 17, 6, 72, 210, 91, 10, 169, 145, 248, 22, 147, 117, 24, 105, 12 ])
+const LEDGER_SERVERS = {
+  'staging': { v1: 'https://ledger-staging.brave.com',
+    v2: 'https://ledger-staging.mercury.basicattentiontoken.org'
+  },
+  'production': { v1: 'https://ledger.brave.com',
+    v2: 'https://ledger.mercury.basicattentiontoken.org'
+  }
+}
 
 const Client = function (personaId, options, state) {
   if (!(this instanceof Client)) return new Client(personaId, options, state)
@@ -34,11 +42,11 @@ const Client = function (personaId, options, state) {
 
   self.options = underscore.defaults(underscore.clone(options || {}),
                                      { version: 'v1', debugP: false, loggingP: false, verboseP: false })
+
+  const env = self.options.environment || 'production'
+  const version = self.options.version || 'v2'
   underscore.defaults(self.options,
-    { server:
-      { v1: 'https://ledger-staging.brave.com',
-        v2: 'https://ledger-staging.mercury.basicattentiontoken.org'
-      }[self.options.version] || 'https://ledger-staging.mercury.basicattentiontoken.org',
+    { server: LEDGER_SERVERS[env][version],
       prefix: '/' + self.options.version
     })
   underscore.keys(self.options).forEach(function (option) {
@@ -564,6 +572,8 @@ Client.prototype.transition = function (newPaymentId, callback) {
 
     if (!body.unsignedTx) return callback(new Error('expecting an unsignedTx'))
 
+    const bitgo = new bg.BitGo({ env: 'prod' })
+
     wallet = bitgo.newWalletObject({ wallet: { id: self.state.properties.wallet.address } })
     wallet.signTransaction({ transactionHex: body.unsignedTx.transactionHex,
       unspents: body.unsignedTx.unspents,
@@ -643,6 +653,8 @@ Client.prototype._registerPersona = function (callback) {
           }
         }
       } else {
+        const bitgo = new bg.BitGo({ env: 'prod' })
+
         passphrase = self.options.debugP ? 'hello world.' : uuid.v4().toLowerCase()
         keychains = { user: bitgo.keychains().create(), passphrase: passphrase }
         keychains.user.encryptedXprv = bitgo.encrypt({ password: keychains.passphrase, input: keychains.user.xprv })
@@ -810,6 +822,8 @@ Client.prototype._currentReconcile = function (callback) {
 
       return reconcile(payload)
     }
+
+    const bitgo = new bg.BitGo({ env: 'prod' })
 
     wallet = bitgo.newWalletObject({ wallet: { id: self.state.properties.wallet.address } })
     wallet.signTransaction({ transactionHex: body.unsignedTx.transactionHex,
