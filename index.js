@@ -801,7 +801,7 @@ Client.prototype._currentReconcile = function (callback) {
     fee = body.unsignedTx.fee
     rates = body.rates
     if (body.altcurrency) {
-      keypair = this.getKeypair()
+      keypair = self.getKeypair()
       octets = stringify(body.unsignedTx)
       var headers = {
         digest: 'SHA-256=' + crypto.createHash('sha256').update(octets).digest('base64')
