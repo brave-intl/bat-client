@@ -14,7 +14,7 @@ var uuid = require('uuid')
 
 var usage = function () {
   console.log('usage: node ' + path.basename(process.argv[1]) +
-              ' [ -d ] [ -f file | -p personaID] [ -l ] [ -s https://... ] [ -v ]')
+              ' [-1] [ -d ] [ -f file | -p personaID | -P] [ -l ] [ -s https://... ] [ -v ]')
   process.exit(1)
 }
 
@@ -45,6 +45,11 @@ while (argv.length > 0) {
     argv = argv.slice(1)
     continue
   }
+  if (argv[0] === '-P') {
+    personaID = ''
+    argv = argv.slice(1)
+    continue
+  }
   if (argv[0] === '-v') {
     verboseP = true
     argv = argv.slice(1)
@@ -60,7 +65,7 @@ while (argv.length > 0) {
 
   argv = argv.slice(2)
 }
-if ((!configFile) && (!personaID)) usage()
+if ((!configFile) && (typeof personaID === 'undefined')) usage()
 if (!configFile) configFile = 'config.json'
 
 if (!server) server = process.env.SERVER || 'https://ledger-staging.mercury.basicattentiontoken.org'
@@ -134,7 +139,7 @@ var callback = function (err, result, delayTime) {
   })
 }
 
-fs.readFile(personaID ? '/dev/null' : configFile, { encoding: 'utf8' }, function (err, data) {
+fs.readFile(typeof personaID !== 'undefined' ? '/dev/null' : configFile, { encoding: 'utf8' }, function (err, data) {
   var state = err ? null : data ? JSON.parse(data) : {}
 
   client = require('./index.js')(personaID, options, state)

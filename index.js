@@ -38,8 +38,6 @@ const Client = function (personaId, options, state) {
   const now = underscore.now()
   const later = now + (15 * msecs.minute)
 
-  if (!personaId) personaId = uuid.v4().toLowerCase()
-
   self.options = underscore.defaults(underscore.clone(options || {}),
                                      { version: 'v1', debugP: false, loggingP: false, verboseP: false })
 
@@ -636,11 +634,12 @@ Client.prototype._registerPersona = function (callback) {
   path = prefix
   self.roundtrip({ path: path, method: 'GET' }, function (err, response, body) {
     let credential
+    let personaId = self.state.personaId || uuid.v4().toLowerCase()
 
     self._log('_registerPersona', { method: 'GET', path: path, errP: !!err })
     if (err) return callback(err)
 
-    credential = new anonize.Credential(self.state.personaId, body.registrarVK)
+    credential = new anonize.Credential(personaId, body.registrarVK)
 
     self.credentialRequest(credential, function (err, result) {
       let body, keychains, keypair, octets, passphrase, payload
@@ -721,6 +720,7 @@ Client.prototype._registerPersona = function (callback) {
           // yuck
           const walletInfo = (self.state.properties && self.state.properties.wallet) || { }
 
+          self.state.personaId = personaId
           self.state.properties = { setting: 'adFree',
             fee: fee,
             days: days,
@@ -732,7 +732,7 @@ Client.prototype._registerPersona = function (callback) {
           self.state.reconcileStamp = self.state.bootStamp + (self.state.properties.days * msecs.day)
           if (self.options.verboseP) self.state.reconcileDate = new Date(self.state.reconcileStamp)
 
-          self._log('_registerPersona', { delayTime: msecs.minute })
+          self._log('_registerPersona', { personaId: personaId, delayTime: msecs.minute })
           callback(null, self.state, msecs.minute)
         })
       })
