@@ -572,7 +572,7 @@ Client.prototype.busyP = function () {
 Client.prototype.transition = function (newPaymentId, callback) {
   const self = this
 
-  const prefix = '/v1/wallet/'
+  const prefix = '/v2/wallet/'
   let path
 
   if (self.busyP()) return setTimeout(() => { callback(new Error('busy')) }, 0)
