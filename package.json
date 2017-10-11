@@ -1,6 +1,6 @@
 {
   "name": "bat-client",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "An example of client code for the BAT.",
   "main": "index.js",
   "scripts": {
@@ -10,6 +10,8 @@
     "touchdown-staging": "DEBUG=*,-babel ./blastoff.js -d -l -v -s https://ledger-staging.mercury.basicattentiontoken.org -f ./config.json",
     "blastoff-mercury": "DEBUG=*,-babel ./blastoff.js -d -l -v -s https://ledger.mercury.basicattentiontoken.org -p `uuidgen`",
     "touchdown-mercury": "DEBUG=*,-babel ./blastoff.js -d -l -v -s https://ledger.mercury.basicattentiontoken.org -f ./config.json",
+    "blastoff-legacy": "DEBUG=*,-babel ./blastoff.js -d -l -v -s https://ledger.brave.com -1 -p `uuidgen`",
+    "touchdown-legacy": "DEBUG=*,-babel ./blastoff.js -d -l -v -s https://ledger.brave.com -1 -f ./config.json",
     "lint": "standard",
     "test": "npm run test-security && npm run test-index",
     "test-security": "nsp check",

@@ -167,6 +167,8 @@ Client.prototype.sync = function (callback) {
   if (!self.state.persona) return self._registerPersona(callback)
   self.credentials.persona = new anonize.Credential(self.state.persona)
 
+  if (self.options.verboseP) console.log('+++ busyP=' + self.busyP())
+
   ballots = underscore.shuffle(self.state.ballots)
   for (i = ballots.length - 1; i >= 0; i--) {
     ballot = ballots[i]
@@ -547,14 +549,33 @@ Client.prototype.recoverWallet = function (recoveryId, passPhrase, callback) {
   })
 }
 
+Client.prototype.busyP = function () {
+  const self = this
+
+  const then = new Date().getTime() - (15 * msecs.day)
+  let busyP = false
+
+  self.state.ballots.forEach((ballot) => {
+    const transaction = underscore.find(self.state.transactions, (transaction) => {
+      return (transaction.viewingId === ballot.viewingId)
+    })
+
+    if ((!transaction) || (!transaction.submissionStamp) || (!transaction.submissionStamp > then)) return
+
+    busyP = true
+    self._log('busyP', underscore.extend({ submissionStamp: transaction.submissionStamp }, ballot))
+  })
+
+  return busyP
+}
+
 Client.prototype.transition = function (newPaymentId, callback) {
   const self = this
 
   const prefix = '/v1/wallet/'
   let path
 
-  // TBD: when to set this...
-  if (self.busyP) return setTimeout(() => { callback(new Error('busy')) }, 0)
+  if (self.busyP()) return setTimeout(() => { callback(new Error('busy')) }, 0)
 
   path = prefix + self.state.properties.wallet.paymentId + '/transition/' + newPaymentId
   self.roundtrip({ path: path, method: 'GET' }, function (err, response, body) {

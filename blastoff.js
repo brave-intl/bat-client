@@ -25,10 +25,16 @@ var personaID = process.env.PERSONA
 var debugP = process.env.DEBUG || false
 var loggingP = process.env.LOGGING || false
 var verboseP = process.env.VERBOSE || false
+var version = process.env.LEDGER_VERSION || 'v2'
 
 while (argv.length > 0) {
   if (argv[0].indexOf('-') !== 0) break
 
+  if (argv[0] === '-1') {
+    version = 'v1'
+    argv = argv.slice(1)
+    continue
+  }
   if (argv[0] === '-d') {
     debugP = true
     argv = argv.slice(1)
@@ -61,7 +67,7 @@ if (!server) server = process.env.SERVER || 'https://ledger-staging.mercury.basi
 if (server.indexOf('http') !== 0) server = 'https://' + server
 server = url.parse(server)
 
-options = { server: server, debugP: debugP, loggingP: loggingP, verboseP: verboseP, version: 'v2' }
+options = { server: server, debugP: debugP, loggingP: loggingP, verboseP: verboseP, version: version }
 
 /*
  *
