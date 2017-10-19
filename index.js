@@ -6,6 +6,7 @@ const url = require('url')
 const braveCrypto = require('brave-crypto')
 
 const anonize = require('node-anonize2-relic-emscripten')
+const backoff = require('@ambassify/backoff-strategies')
 const balance = require('bat-balance')
 const bg = require('bitgo')
 const Joi = require('joi')
@@ -58,6 +59,7 @@ const Client = function (personaId, options, state) {
     self.roundtrip = function (params, callback) { self._innerTrip(params, self.options, callback) }
   } else if (self.options.debugP) self.roundtrip = self._roundTrip
   else throw new Error('security audit requires options.roundtrip for non-debug use')
+  self._retryTrip = self._retryTrip.bind(self)
   if (self.options.debugP) console.log(JSON.stringify(self.options, null, 2))
 
   self.state = underscore.defaults(state || {}, { personaId: personaId, options: self.options, ballots: [], transactions: [] })
@@ -302,7 +304,7 @@ Client.prototype.getWalletProperties = function (amount, currency, callback) {
 
   suffix = '?balance=true&' + self._getWalletParams({ amount: amount, currency: currency })
   path = prefix + self.state.properties.wallet.paymentId + suffix
-  self.roundtrip({ path: path, method: 'GET' }, function (err, response, body) {
+  self._retryTrip(self, { path: path, method: 'GET' }, function (err, response, body) {
     self._log('getWalletProperties', { method: 'GET', path: prefix + '...' + suffix, errP: !!err })
     if (err) return callback(err)
 
@@ -385,7 +387,7 @@ Client.prototype.reconcile = function (viewingId, callback) {
   }
 
   path = prefix + self.credentials.persona.parameters.userId
-  self.roundtrip({ path: path, method: 'GET', useProxy: true }, function (err, response, body) {
+  self._retryTrip(self, { path: path, method: 'GET', useProxy: true }, function (err, response, body) {
     const surveyorInfo = body
     let i
 
@@ -519,7 +521,7 @@ Client.prototype.recoverWallet = function (recoveryId, passPhrase, callback) {
   }
 
   path = '/v2/wallet?publicKey=' + braveCrypto.uint8ToHex(keypair.publicKey)
-  self.roundtrip({ path: path, method: 'GET' }, function (err, response, body) {
+  self._retryTrip(self, { path: path, method: 'GET' }, function (err, response, body) {
     if (err) return callback(err)
 
     self._log('recoverWallet', body)
@@ -529,7 +531,7 @@ Client.prototype.recoverWallet = function (recoveryId, passPhrase, callback) {
     recoveryId = body.paymentId
 
     path = '/v2/wallet/' + recoveryId
-    self.roundtrip({ path: path, method: 'GET' }, function (err, response, body) {
+    self._retryTrip(self, { path: path, method: 'GET' }, function (err, response, body) {
       self._log('recoverWallet', { method: 'GET', path: '/v2/wallet/...', errP: !!err })
       if (err) return callback(err)
 
@@ -576,7 +578,7 @@ Client.prototype.transition = function (newPaymentId, callback) {
   if (self.busyP()) return setTimeout(() => { callback(new Error('busy')) }, 0)
 
   path = prefix + self.state.properties.wallet.paymentId + '/transition/' + newPaymentId
-  self.roundtrip({ path: path, method: 'GET' }, function (err, response, body) {
+  self._retryTrip(self, { path: path, method: 'GET' }, function (err, response, body) {
     let wallet
 
     self._log('transition', { method: 'GET', path: prefix + '.../transition/...', errP: !!err })
@@ -605,7 +607,7 @@ Client.prototype.transition = function (newPaymentId, callback) {
 
       path = prefix + self.state.properties.wallet.paymentId + '/transition'
       payload = { signedTx: signedTx.tx }
-      self.roundtrip({ path: path, method: 'PUT', payload: payload }, function (err, response, body) {
+      self._retryTrip(self, { path: path, method: 'PUT', payload: payload }, function (err, response, body) {
         self._log('transition', { method: 'PUT', path: prefix + '...', errP: !!err })
         if (err) return callback(err)
 
@@ -632,7 +634,7 @@ Client.prototype._registerPersona = function (callback) {
   let path
 
   path = prefix
-  self.roundtrip({ path: path, method: 'GET' }, function (err, response, body) {
+  self._retryTrip(self, { path: path, method: 'GET' }, function (err, response, body) {
     let credential
     let personaId = self.state.personaId || uuid.v4().toLowerCase()
 
@@ -684,7 +686,7 @@ Client.prototype._registerPersona = function (callback) {
       payload.proof = result.proof
 
       path = prefix + '/' + credential.parameters.userId
-      self.roundtrip({ path: path, method: 'POST', payload: payload }, function (err, response, body) {
+      self._retryTrip(self, { path: path, method: 'POST', payload: payload }, function (err, response, body) {
         let configuration, currency, days, fee
 
         self._log('_registerPersona', { method: 'POST', path: prefix + '/...', errP: !!err })
@@ -752,7 +754,7 @@ Client.prototype._currentReconcile = function (callback) {
 
   suffix = '?' + self._getWalletParams({ amount: amount, currency: currency })
   path = prefix + self.state.properties.wallet.paymentId + suffix
-  self.roundtrip({ path: path, method: 'GET' }, function (err, response, body) {
+  self._retryTrip(self, { path: path, method: 'GET' }, function (err, response, body) {
     let alt, delayTime, keypair, octets, payload
 
     self._log('_currentReconcile', { method: 'GET', path: prefix + '...?' + suffix, errP: !!err })
@@ -785,7 +787,7 @@ Client.prototype._currentReconcile = function (callback) {
     const reconcile = (params) => {
       path = prefix + self.state.properties.wallet.paymentId
       payload = underscore.extend({ viewingId: viewingId, surveyorId: surveyorInfo.surveyorId }, params)
-      self.roundtrip({ path: path, method: 'PUT', payload: payload }, function (err, response, body) {
+      self._retryTrip(self, { path: path, method: 'PUT', payload: payload }, function (err, response, body) {
         let transaction
 
         self._log('_currentReconcile', { method: 'PUT', path: prefix + '...', errP: !!err })
@@ -865,7 +867,7 @@ Client.prototype._registerViewing = function (viewingId, callback) {
   const prefix = self.options.prefix + '/registrar/viewing'
   let path = prefix
 
-  self.roundtrip({ path: path, method: 'GET' }, function (err, response, body) {
+  self._retryTrip(self, { path: path, method: 'GET' }, function (err, response, body) {
     let credential
 
     self._log('_registerViewing', { method: 'GET', path: path, errP: !!err })
@@ -879,7 +881,7 @@ Client.prototype._registerViewing = function (viewingId, callback) {
       if (result.credential) credential = new anonize.Credential(result.credential)
 
       path = prefix + '/' + credential.parameters.userId
-      self.roundtrip({ path: path, method: 'POST', payload: { proof: result.proof } }, function (err, response, body) {
+      self._retryTrip(self, { path: path, method: 'POST', payload: { proof: result.proof } }, function (err, response, body) {
         let i
 
         self._log('_registerViewing', { method: 'POST', path: prefix + '/...', errP: !!err })
@@ -920,7 +922,7 @@ Client.prototype._prepareBallot = function (ballot, transaction, callback) {
   let path
 
   path = prefix + encodeURIComponent(ballot.surveyorId) + '/' + credential.parameters.userId
-  self.roundtrip({ path: path, method: 'GET', useProxy: true }, function (err, response, body) {
+  self._retryTrip(self, { path: path, method: 'GET', useProxy: true }, function (err, response, body) {
     let delayTime, now
 
     self._log('_prepareBallot', { method: 'GET', path: prefix + '...', errP: !!err })
@@ -951,7 +953,7 @@ Client.prototype._commitBallot = function (ballot, transaction, callback) {
   self.credentialSubmit(credential, surveyor, { publisher: ballot.publisher }, function (err, result) {
     if (err) return callback(err)
 
-    self.roundtrip({ path: path, method: 'PUT', useProxy: true, payload: result.payload }, function (err, response, body) {
+    self._retryTrip(self, { path: path, method: 'PUT', useProxy: true, payload: result.payload }, function (err, response, body) {
       let i
 
       self._log('_commitBallot', { method: 'PUT', path: prefix + '...', errP: !!err })
@@ -1001,7 +1003,7 @@ Client.prototype._updateRules = function (callback) {
   if (self.options.verboseP) self.state.updatesDate = new Date(self.state.updatesStamp)
 
   path = '/v1/publisher/ruleset?consequential=true'
-  self.roundtrip({ path: path, method: 'GET' }, function (err, response, ruleset) {
+  self._retryTrip(self, { path: path, method: 'GET' }, function (err, response, ruleset) {
     let validity
 
     self._log('_updateRules', { method: 'GET', path: '/v1/publisher/ruleset', errP: !!err })
@@ -1033,7 +1035,7 @@ Client.prototype._updateRulesV2 = function (callback) {
 
   path = '/v2/publisher/ruleset?limit=512&excludedOnly=false'
   if (self.state.rulesV2Stamp) path += '&timestamp=' + self.state.rulesV2Stamp
-  self.roundtrip({ path: path, method: 'GET' }, function (err, response, ruleset) {
+  self._retryTrip(self, { path: path, method: 'GET' }, function (err, response, ruleset) {
     let c, i, rule, ts
 
     self._log('_updateRules', { method: 'GET', path: '/v2/publisher/ruleset', errP: !!err })
@@ -1075,7 +1077,7 @@ Client.prototype._updatePublishersV2 = function (callback) {
 
   path = '/v2/publisher/identity/verified?limit=512'
   if (self.state.publishersV2Stamp) path += '&timestamp=' + self.state.publishersV2Stamp
-  self.roundtrip({ path: path, method: 'GET' }, function (err, response, publishers) {
+  self._retryTrip(self, { path: path, method: 'GET' }, function (err, response, publishers) {
     let c, i, publisher, ts
 
     self._log('_updatePublishersV2', { method: 'GET', path: '/v2/publisher/identity/verified', errP: !!err })
@@ -1112,7 +1114,35 @@ Client.prototype._updatePublishersV2 = function (callback) {
   })
 }
 
-// round-trip to the ledger
+// round-trip to the ledger with retries!
+Client.prototype._retryTrip = (self, params, callback, retry) => {
+  let method
+
+  const loser = (reason) => { setTimeout(() => { callback(new Error(reason)) }, 0) }
+  const rangeP = (n, min, max) => { return ((min <= n) && (n <= max) && (n === parseInt(n, 10))) }
+
+  if (!retry) {
+    retry = underscore.defaults(params.backoff || {}, {
+      algorithm: 'binaryExponential', delay: 5 * 1000, retries: 3, tries: 0
+    })
+    if (!rangeP(retry.delay, 1, 30 * 1000)) return loser('invalid backoff delay')
+    if (!rangeP(retry.retries, 0, 10)) return loser('invalid backoff retries')
+    if (!rangeP(retry.tries, 0, retry.retries - 1)) return loser('invalid backoff tries')
+  }
+  method = retry.method || backoff[retry.algorithm]
+  if (typeof method !== 'function') return loser('invalid backoff algorithm')
+  method = method(retry.delay)
+
+  self.roundtrip(params, (err, response, payload) => {
+    console.log(JSON.stringify({ err: err && err.toString(), statusCode: response.statusCode, payloadP: (!!payload) }), null, 2)
+    const code = Math.floor(response.statusCode / 100)
+
+    if ((!err) || (code !== 5) || (retry.retries-- < 0)) return callback(err, response, payload)
+
+    return setTimeout(() => { self._retryTrip(self, params, callback, retry) }, method(++retry.tries))
+  })
+}
+
 Client.prototype._roundTrip = function (params, callback) {
   const self = this
 
