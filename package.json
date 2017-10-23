@@ -1,6 +1,6 @@
 {
   "name": "bat-client",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "description": "An example of client code for the BAT.",
   "main": "index.js",
   "scripts": {
@@ -29,6 +29,7 @@
   },
   "homepage": "https://github.com/brave-intl/bat-client",
   "dependencies": {
+    "@ambassify/backoff-strategies": "1.0.0",
     "bat-balance": "^1.0.0",
     "bat-publisher": "^1.0.0",
     "bitgo": "^4.4.3",
