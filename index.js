@@ -1134,7 +1134,6 @@ Client.prototype._retryTrip = (self, params, callback, retry) => {
   method = method(retry.delay)
 
   self.roundtrip(params, (err, response, payload) => {
-    console.log(JSON.stringify({ err: err && err.toString(), statusCode: response.statusCode, payloadP: (!!payload) }), null, 2)
     const code = Math.floor(response.statusCode / 100)
 
     if ((!err) || (code !== 5) || (retry.retries-- < 0)) return callback(err, response, payload)
