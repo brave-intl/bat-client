@@ -2,6 +2,7 @@ const crypto = require('crypto')
 const http = require('http')
 const https = require('https')
 const path = require('path')
+const querystring = require('querystring')
 const url = require('url')
 const braveCrypto = require('brave-crypto')
 
@@ -619,6 +620,20 @@ Client.prototype.transition = function (newPaymentId, callback) {
 
 Client.prototype.transitioned = function (oldState) {
   return underscore.extend(this.state, oldState)
+}
+
+Client.prototype.publisherInfo = function (publisher, callback) {
+  const self = this
+
+  let path
+
+  path = '/v3/publisher/identity?' + querystring.stringify({ publisher: publisher })
+  self._retryTrip(self, { path: path, method: 'GET', useProxy: true }, function (err, response, body) {
+    self._log('publisherInfo', { method: 'GET', path: path, errP: !!err })
+    if (err) return callback(err)
+
+    callback(null, body)
+  })
 }
 
 /*

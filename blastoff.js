@@ -144,6 +144,11 @@ fs.readFile(typeof personaID !== 'undefined' ? '/dev/null' : configFile, { encod
 
   client = require('./index.js')(personaID, options, state)
   if (client.sync(callback) === true) run(10 * 1000)
+
+  client.publisherInfo('google.com', (err, result) => {
+    if (err) console.log('google.com: ' + err.toString)
+    if (result) console.log('google.com: ' + JSON.stringify(result, null, 2))
+  })
 })
 
 /*
