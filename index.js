@@ -18,16 +18,18 @@ const stringify = require('json-stable-stringify')
 const underscore = require('underscore')
 const uuid = require('uuid')
 
-const ledgerPublisher = require('bat-publisher')
+const batPublisher = require('bat-publisher')
 
 const PASSPHRASE_LENGTH = 16
 const SEED_LENGTH = 32
 const HKDF_SALT = new Uint8Array([ 126, 244, 99, 158, 51, 68, 253, 80, 133, 183, 51, 180, 77, 62, 74, 252, 62, 106, 96, 125, 241, 110, 134, 87, 190, 208, 158, 84, 125, 69, 246, 207, 162, 247, 107, 172, 37, 34, 53, 246, 105, 20, 215, 5, 248, 154, 179, 191, 46, 17, 6, 72, 210, 91, 10, 169, 145, 248, 22, 147, 117, 24, 105, 12 ])
 const LEDGER_SERVERS = {
-  'staging': { v1: 'https://ledger-staging.brave.com',
+  'staging': {
+    v1: 'https://ledger-staging.brave.com',
     v2: 'https://ledger-staging.mercury.basicattentiontoken.org'
   },
-  'production': { v1: 'https://ledger.brave.com',
+  'production': {
+    v1: 'https://ledger.brave.com',
     v2: 'https://ledger.mercury.basicattentiontoken.org'
   }
 }
@@ -622,6 +624,20 @@ Client.prototype.transitioned = function (oldState) {
   return underscore.extend(this.state, oldState)
 }
 
+Client.prototype.publisherTimestamp = function (callback) {
+  const self = this
+
+  let path
+
+  path = '/v3/publisher/timestamp'
+  self._retryTrip(self, { path: path, method: 'GET', useProxy: true }, function (err, response, body) {
+    self._log('publisherInfo', { method: 'GET', path: path, errP: !!err })
+    if (err) return callback(err)
+
+    callback(null, body)
+  })
+}
+
 Client.prototype.publisherInfo = function (publisher, callback) {
   const self = this
 
@@ -1024,7 +1040,7 @@ Client.prototype._updateRules = function (callback) {
     self._log('_updateRules', { method: 'GET', path: '/v1/publisher/ruleset', errP: !!err })
     if (err) return callback(err)
 
-    validity = Joi.validate(ruleset, ledgerPublisher.schema)
+    validity = Joi.validate(ruleset, batPublisher.schema)
     if (validity.error) {
       self._log('_updateRules', { error: validity.error })
       return callback(new Error(validity.error))
@@ -1033,7 +1049,7 @@ Client.prototype._updateRules = function (callback) {
     if (!underscore.isEqual(self.state.ruleset || [], ruleset)) {
       self.state.ruleset = ruleset
 
-      ledgerPublisher.rules = ruleset
+      batPublisher.rules = ruleset
     }
 
     self._updateRulesV2(callback)
