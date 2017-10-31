@@ -65,6 +65,15 @@ const Client = function (personaId, options, state) {
   self._retryTrip = self._retryTrip.bind(self)
   if (self.options.debugP) console.log(JSON.stringify(self.options, null, 2))
 
+  // Workaround #20
+  if (state && state.properties && state.properties.wallet && state.properties.wallet.keyinfo) {
+    let seed = state.properties.wallet.keyinfo.seed
+    if (!(seed instanceof Uint8Array)) {
+      seed = new Uint8Array(Object.values(seed))
+    }
+
+    state.properties.wallet.keyinfo.seed = seed
+  }
   self.state = underscore.defaults(state || {}, { personaId: personaId, options: self.options, ballots: [], transactions: [] })
   self.logging = []
 

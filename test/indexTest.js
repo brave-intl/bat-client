@@ -38,3 +38,19 @@ test('recoverKeypair', (t) => {
   t.equal(crypto.uint8ToHex(client2.recoverKeypair(passPhrase).secretKey), crypto.uint8ToHex(signingKey.secretKey))
   t.equal(crypto.uint8ToHex(client2.recoverKeypair(passPhrase).publicKey), crypto.uint8ToHex(signingKey.publicKey))
 })
+
+// Tests workaround for #20
+test('initWithDeserializedState', (t) => {
+  t.plan(2)
+
+  const client = new Ledger(null, options)
+
+  const signingKey = client.generateKeypair()
+  const state = JSON.parse(JSON.stringify(client.state))
+
+  const client2 = new Ledger(null, options, state)
+  const signingKey2 = client2.getKeypair()
+
+  t.equal(crypto.uint8ToHex(signingKey.secretKey), crypto.uint8ToHex(signingKey2.secretKey))
+  t.equal(crypto.uint8ToHex(signingKey.publicKey), crypto.uint8ToHex(signingKey2.publicKey))
+})
