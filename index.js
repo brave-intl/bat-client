@@ -127,6 +127,10 @@ Client.prototype.sync = function (callback) {
   }
   if (!self.state.ruleset) {
     self.state.ruleset = [
+      { condition: 'SLD === \'youtube.com\' && pathname.indexOf(\'/channel/\') === 0',
+        consequent: '\'youtube#channel:\' + pathname.split(\'/\')[2]',
+        description: 'youtube channels'
+      },
       {
         condition: '/^[a-z][a-z].gov$/.test(SLD)',
         consequent: 'QLD + \'.\' + SLD',
@@ -156,7 +160,7 @@ Client.prototype.sync = function (callback) {
   }
 // end: legacy updates...
 
-  if ((self.credentials) && (!self.state.publishersV2Stamp) && (!self.state.rulesV2Stamp)) {
+  if ((self.credentials) && (!self.state.rulesV2Stamp)) {
     try {
       const bootstrap = require(path.join(__dirname, 'bootstrap'))
 
@@ -1081,7 +1085,7 @@ Client.prototype._updateRulesV2 = function (callback) {
     self._log('_updateRules', { method: 'GET', path: '/v2/publisher/ruleset', errP: !!err })
     if (err) return callback(err)
 
-    if (ruleset.length === 0) return self._updatePublishersV2(callback)
+    if (ruleset.length === 0) return callback()
 
     if (!self.state.rulesetV2) self.state.rulesetV2 = []
     self.state.rulesetV2 = self.state.rulesetV2.concat(ruleset)
@@ -1104,53 +1108,6 @@ Client.prototype._updateRulesV2 = function (callback) {
     }
 
     setTimeout(function () { self._updateRulesV2.bind(self)(callback) }, 3 * msecs.second)
-  })
-}
-
-Client.prototype._updatePublishersV2 = function (callback) {
-  const self = this
-
-  let path
-
-  self.state.updatesStamp = underscore.now() + msecs.hour
-  if (self.options.verboseP) self.state.updatesDate = new Date(self.state.updatesStamp)
-
-  path = '/v2/publisher/identity/verified?limit=512'
-  if (self.state.publishersV2Stamp) path += '&timestamp=' + self.state.publishersV2Stamp
-  self._retryTrip(self, { path: path, method: 'GET' }, function (err, response, publishers) {
-    let c, i, publisher, ts
-
-    self._log('_updatePublishersV2', { method: 'GET', path: '/v2/publisher/identity/verified', errP: !!err })
-    if (err) return callback(err)
-
-    if (publishers.length === 0) {
-      self.state.updatesStamp = underscore.now() + msecs.hour
-      if (self.options.verboseP) self.state.updatesDate = new Date(self.state.updatesStamp)
-
-      return callback()
-    }
-
-    if (!self.state.publishersV2) self.state.publishersV2 = []
-    self.state.publishersV2 = self.state.publishersV2.concat(publishers)
-    publisher = underscore.last(publishers)
-
-    if (publishers.length < 512) {
-      ts = publisher.timestamp.split('')
-      for (i = ts.length - 1; i >= 0; i--) {
-        c = ts[i]
-        if (c < '9') {
-          ts[i] = String.fromCharCode(ts[i].charCodeAt(0) + 1)
-          break
-        }
-        ts[i] = '0'
-      }
-
-      self.state.publishersV2Stamp = ts.join('')
-    } else {
-      self.state.publishersV2Stamp = publisher.timestamp
-    }
-
-    setTimeout(function () { self._updatePublishersV2.bind(self)(callback) }, 3 * msecs.second)
   })
 }
 
