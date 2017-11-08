@@ -634,7 +634,7 @@ Client.prototype.transition = function (newPaymentId, callback) {
 }
 
 Client.prototype.transitioned = function (oldState) {
-  return underscore.extend(this.state, oldState)
+  return underscore.defaults(this.state, oldState)
 }
 
 Client.prototype.publisherTimestamp = function (callback) {
