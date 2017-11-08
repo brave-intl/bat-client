@@ -642,6 +642,8 @@ Client.prototype.publisherTimestamp = function (callback) {
 
   let path
 
+  if (self.options.version === 'v1') return
+
   path = '/v3/publisher/timestamp'
   self._retryTrip(self, { path: path, method: 'GET', useProxy: true }, function (err, response, body) {
     self._log('publisherInfo', { method: 'GET', path: path, errP: !!err })
@@ -655,6 +657,8 @@ Client.prototype.publisherInfo = function (publisher, callback) {
   const self = this
 
   let path
+
+  if (self.options.version === 'v1') return
 
   path = '/v3/publisher/identity?' + querystring.stringify({ publisher: publisher })
   self._retryTrip(self, { path: path, method: 'GET', useProxy: true }, function (err, response, body) {
