@@ -338,7 +338,7 @@ Client.prototype.setTimeUntilReconcile = function (timestamp, callback) {
   callback(null, this.state)
 }
 
-Client.prototype.timeUntilReconcile = function () {
+Client.prototype.timeUntilReconcile = function (synopsis) {
   if (!this.state.reconcileStamp) {
     this._log('isReadyToReconcile', { errP: true })
     throw new Error('Ledger client initialization incomplete.')
@@ -349,13 +349,15 @@ Client.prototype.timeUntilReconcile = function () {
     return false
   }
 
+  this._fuzzing(synopsis)
   return (this.state.reconcileStamp - underscore.now())
 }
 
-Client.prototype.isReadyToReconcile = function () {
+Client.prototype.isReadyToReconcile = function (synopsis) {
   const delayTime = this.timeUntilReconcile()
 
   this._log('isReadyToReconcile', { delayTime: delayTime })
+  this._fuzzing(synopsis)
   return ((typeof delayTime === 'boolean') ? delayTime : (delayTime <= 0))
 }
 
@@ -1328,6 +1330,24 @@ Client.prototype.credentialSubmit = function (credential, surveyor, data, callba
   return callback(null, { payload: payload })
 }
 
+Client.prototype._fuzzing = function (synopsis) {
+  let ratio, window
+  let duration = 0
+
+  if (!synopsis) return
+
+  synopsis.prune()
+  underscore.keys(synopsis.publishers).forEach((publisher) => {
+    duration += synopsis.publishers[publisher].duration
+  })
+
+  // at the moment hard-wired to 30 minutes every 30 days
+  ratio = duration / (30 * msecs.minute)
+  window = synopsis.options.numFrames * synopsis.options.frameSize
+  if (window > 0) ratio *= (30 * msecs.day) / window
+
+  if (ratio < 1.0) this.state.reconcileStamp += Math.round((this.state.properties.days * msecs.day) * (1.0 - ratio))
+}
 /*
  *
  * utilities
