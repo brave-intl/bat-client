@@ -52,3 +52,15 @@ test('transition', async (t) => {
     })
   })
 })
+
+test('balance', async (t) => {
+  t.plan(2)
+  const client = new Ledger(null, options)
+
+  client.sync(function () {
+    client.getWalletProperties(function (err, resp) {
+      t.false(err)
+      t.equal(resp.probi, '0')
+    })
+  })
+})

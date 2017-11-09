@@ -287,7 +287,7 @@ Client.prototype.getWalletProperties = function (amount, currency, callback) {
   const self = this
 
   const prefix = self.options.prefix + '/wallet/'
-  let cardId, errP, path, suffix
+  let params, errP, path, suffix
 
   if (typeof amount === 'function') {
     callback = amount
@@ -305,10 +305,10 @@ Client.prototype.getWalletProperties = function (amount, currency, callback) {
   if (errP) throw new Error('Ledger client initialization incomplete.')
 
   if ((!self.state.currentReconcile) && (self.state.reconcileStamp) && (self.state.reconcileStamp > underscore.now())) {
-    cardId = self.state.properties.wallet.addresses && self.state.properties.wallet.addresses.CARD_ID
+    params = underscore.pick(self.state.properties.wallet, ['addresses', 'paymentId'])
   }
-  if (cardId) {
-    balance.getProperties(cardId, self.options, (err, provider, result) => {
+  if (params) {
+    balance.getProperties(params, self.options, (err, provider, result) => {
       self._log('getWalletProperties', { method: 'GET', path: 'getProperties', errP: !!err })
       if (err) return callback(err)
 
