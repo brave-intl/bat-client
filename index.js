@@ -1333,8 +1333,9 @@ Client.prototype.credentialSubmit = function (credential, surveyor, data, callba
 Client.prototype._fuzzing = function (synopsis) {
   let ratio, window
   let duration = 0
+  let remaining = this.state.reconcileStamp - underscore.now()
 
-  if (!synopsis) return
+  if ((!synopsis) || (remaining > (3 * msecs.day))) return console.log('!!! more than 3 days remaining')
 
   synopsis.prune()
   underscore.keys(synopsis.publishers).forEach((publisher) => {
