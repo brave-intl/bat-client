@@ -1369,7 +1369,7 @@ Client.prototype._fuzzing = function (synopsis) {
   let duration = 0
   let remaining = this.state.reconcileStamp - underscore.now()
 
-  if ((!synopsis) || (remaining > (3 * msecs.day))) return console.log('!!! more than 3 days remaining')
+  if ((!synopsis) || (remaining > (3 * msecs.day))) return
 
   synopsis.prune()
   underscore.keys(synopsis.publishers).forEach((publisher) => {
