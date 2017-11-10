@@ -671,6 +671,40 @@ Client.prototype.publisherInfo = function (publisher, callback) {
   })
 }
 
+Client.prototype.getPromotion = function (callback) {
+  const self = this
+
+  let path, paymentId
+
+  if (self.options.version === 'v1') return
+
+  path = '/v1/grants'
+  paymentId = self.state && self.state.properties && self.state.properties.wallet && self.state.properties.wallet.paymentId
+  if (paymentId) path += '?' + querystring.stringify({ paymentId: paymentId })
+  self._retryTrip(self, { path: path, method: 'GET' }, function (err, response, body) {
+    self._log('getPromotion', { method: 'GET', path: path, errP: !!err })
+    if (err) return callback(err)
+
+    callback(null, body)
+  })
+}
+
+Client.prototype.setPromotion = function (promotionId, callback) {
+  const self = this
+
+  let path
+
+  if (self.options.version === 'v1') return
+
+  path = '/v1/grant/' + promotionId
+  self._retryTrip(self, { path: path, method: 'PUT' }, function (err, response, body) {
+    self._log('publisherInfo', { method: 'PUT', path: path, errP: !!err })
+    if (err) return callback(err)
+
+    callback(null, body)
+  })
+}
+
 /*
  *
  * internal functions
