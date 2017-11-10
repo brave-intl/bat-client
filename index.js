@@ -54,7 +54,11 @@ const Client = function (personaId, options, state) {
   underscore.keys(self.options).forEach(function (option) {
     if ((option.lastIndexOf('P') + 1) === option.length) self.options[option] = Client.prototype.boolion(self.options[option])
   })
-  if (typeof self.options.server === 'string') self.options.server = url.parse(self.options.server)
+  if (typeof self.options.server === 'string') {
+    self.options.server = url.parse(self.options.server)
+    if (!self.options.server) throw new Error('invalid options.server')
+  }
+
   if (typeof self.options.roundtrip !== 'undefined') {
     if (typeof self.options.roundtrip !== 'function') throw new Error('invalid roundtrip option (must be a function)')
 
