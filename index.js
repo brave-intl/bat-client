@@ -700,8 +700,8 @@ Client.prototype.setPromotion = function (promotionId, callback) {
 
   if (self.options.version === 'v1') return
 
-  path = '/v1/grant/' + promotionId
-  self._retryTrip(self, { path: path, method: 'PUT' }, function (err, response, body) {
+  path = '/v1/grant/' + self.state.properties.wallet.paymentId
+  self._retryTrip(self, { path: path, method: 'PUT', payload: { promotionId: promotionId } }, function (err, response, body) {
     self._log('publisherInfo', { method: 'PUT', path: path, errP: !!err })
     if (err) return callback(err)
 
