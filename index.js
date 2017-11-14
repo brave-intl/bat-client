@@ -675,16 +675,24 @@ Client.prototype.publisherInfo = function (publisher, callback) {
   })
 }
 
-Client.prototype.getPromotion = function (callback) {
+Client.prototype.getPromotion = function (lang, callback) {
   const self = this
 
-  let path, paymentId
+  let path, params, paymentId
 
   if (self.options.version === 'v1') return
 
+  if (!callback) {
+    callback = lang
+    lang = null
+    if (typeof callback !== 'function') throw new Error('getPromotion missing callback parameter')
+  }
+
   path = '/v1/grants'
+  if (lang) params.lang = lang
   paymentId = self.state && self.state.properties && self.state.properties.wallet && self.state.properties.wallet.paymentId
-  if (paymentId) path += '?' + querystring.stringify({ paymentId: paymentId })
+  if (paymentId) params.paymentId = paymentId
+  if ((lang) || (paymentId)) path += '?' + querystring.stringify(params)
   self._retryTrip(self, { path: path, method: 'GET' }, function (err, response, body) {
     self._log('getPromotion', { method: 'GET', path: path, errP: !!err })
     if (err) return callback(err)
