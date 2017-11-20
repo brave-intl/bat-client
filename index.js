@@ -679,6 +679,7 @@ Client.prototype.getPromotion = function (lang, callback) {
   const self = this
 
   let path, params, paymentId
+  params = {}
 
   if (self.options.version === 'v1') return
 
