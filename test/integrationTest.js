@@ -64,3 +64,15 @@ test('balance', async (t) => {
     })
   })
 })
+
+test('getPromotion', async (t) => {
+  t.plan(2)
+  const client = new Ledger(null, options)
+
+  client.sync(function () {
+    client.getPromotion(null, function (err, resp) {
+      t.false(err)
+      t.true(resp.hasOwnProperty('promotionId'))
+    })
+  })
+})
