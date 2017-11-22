@@ -4,6 +4,7 @@ const test = require('tape')
 
 const options = { debugP: true, version: 'v2', environment: 'staging' }
 
+/*
 test('recoverWallet', async (t) => {
   t.plan(6)
   const client = new Ledger(null, options)
@@ -64,15 +65,25 @@ test('balance', async (t) => {
     })
   })
 })
+*/
 
-test('getPromotion', async (t) => {
-  t.plan(2)
+test('promotion', async (t) => {
+  t.plan(6)
   const client = new Ledger(null, options)
 
   client.sync(function () {
     client.getPromotion(null, function (err, resp) {
       t.false(err)
       t.true(resp.hasOwnProperty('promotionId'))
+      client.setPromotion(resp.promotionId, function (err, resp) {
+        t.false(err)
+        t.true(resp.hasOwnProperty('probi'))
+        grantProbi = resp.probi
+        client.getWalletProperties(function (err, resp) {
+          t.false(err)
+          t.equal(resp.probi, grantProbi)
+        })
+      })
     })
   })
 })
