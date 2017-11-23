@@ -71,7 +71,7 @@ test('promotion', async (t) => {
   const client2 = new Ledger(null, options)
 
   client.sync(function () {
-    client.getPromotion(null, function (err, resp) {
+    client.getPromotion(null, null, function (err, resp) {
       t.false(err)
       t.true(resp.hasOwnProperty('promotionId'))
       client.setPromotion(resp.promotionId, function (err, resp) {
@@ -81,9 +81,9 @@ test('promotion', async (t) => {
         client.getWalletProperties(function (err, resp) {
           t.false(err)
           t.equal(resp.probi, grantProbi)
-          client2.getPromotion(null, function (err, resp) {
+          client2.getPromotion(null, client.getPaymentId(), function (err, resp) {
             t.true(err)
-          }, client.getPaymentId())
+          })
         })
       })
     })
