@@ -675,7 +675,7 @@ Client.prototype.publisherInfo = function (publisher, callback) {
   })
 }
 
-Client.prototype.getPromotion = function (lang, callback) {
+Client.prototype.getPromotion = function (lang, callback, forPaymentId) {
   const self = this
 
   let path, params, paymentId
@@ -693,6 +693,7 @@ Client.prototype.getPromotion = function (lang, callback) {
   if (lang) params.lang = lang
   paymentId = self.state && self.state.properties && self.state.properties.wallet && self.state.properties.wallet.paymentId
   if (paymentId) params.paymentId = paymentId
+  if (forPaymentId) params.paymentId = paymentId = forPaymentId
   if ((lang) || (paymentId)) path += '?' + querystring.stringify(params)
   self._retryTrip(self, { path: path, method: 'GET' }, function (err, response, body) {
     self._log('getPromotion', { method: 'GET', path: path, errP: !!err })
