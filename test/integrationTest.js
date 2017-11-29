@@ -84,9 +84,10 @@ test('promotion', async (t) => {
           t.equal(resp.probi, grantProbi)
           client2.getPromotion(null, client.getPaymentId(), function (err, resp) {
             t.true(err)
-            client.setPromotion(promotionId, function (err, body, resp) {
+            client.setPromotion(promotionId, function (err, resp, respObj) {
+              // resp is response body, respObj is response object
               t.true(err)
-              t.equal(resp.statusCode, 422)
+              t.equal(respObj.statusCode, 422)
             })
           })
         })
