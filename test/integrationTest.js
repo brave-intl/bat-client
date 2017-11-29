@@ -66,7 +66,7 @@ test('balance', async (t) => {
 })
 
 test('promotion', async (t) => {
-  t.plan(8)
+  t.plan(9)
   const client = new Ledger(null, options)
   const client2 = new Ledger(null, options)
 
@@ -84,8 +84,9 @@ test('promotion', async (t) => {
           t.equal(resp.probi, grantProbi)
           client2.getPromotion(null, client.getPaymentId(), function (err, resp) {
             t.true(err)
-            client.setPromotion(promotionId, function (err, resp) {
+            client.setPromotion(promotionId, function (err, body, resp) {
               t.true(err)
+              t.equal(resp.statusCode, 422)
             })
           })
         })
