@@ -66,7 +66,7 @@ test('balance', async (t) => {
 })
 
 test('promotion', async (t) => {
-  t.plan(7)
+  t.plan(9)
   const client = new Ledger(null, options)
   const client2 = new Ledger(null, options)
 
@@ -74,7 +74,8 @@ test('promotion', async (t) => {
     client.getPromotion(null, null, function (err, resp) {
       t.false(err)
       t.true(resp.hasOwnProperty('promotionId'))
-      client.setPromotion(resp.promotionId, function (err, resp) {
+      const promotionId = resp.promotionId
+      client.setPromotion(promotionId, function (err, resp) {
         t.false(err)
         t.true(resp.hasOwnProperty('probi'))
         const grantProbi = resp.probi
@@ -83,6 +84,11 @@ test('promotion', async (t) => {
           t.equal(resp.probi, grantProbi)
           client2.getPromotion(null, client.getPaymentId(), function (err, resp) {
             t.true(err)
+            client.setPromotion(promotionId, function (err, resp, respObj) {
+              // resp is response body, respObj is response object
+              t.true(err)
+              t.equal(respObj.statusCode, 422)
+            })
           })
         })
       })
