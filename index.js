@@ -1386,7 +1386,7 @@ Client.prototype._fuzzing = function (synopsis) {
   let duration = 0
   let remaining = this.state.reconcileStamp - underscore.now()
 
-  if ((!synopsis) || (remaining > (3 * msecs.day))) return
+  if ((!synopsis) || (remaining > (3 * msecs.day)) || (this.boolion(process.env.LEDGER_NO_FUZZING))) return
 
   synopsis.prune()
   underscore.keys(synopsis.publishers).forEach((publisher) => {
