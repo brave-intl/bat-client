@@ -675,6 +675,34 @@ Client.prototype.publisherInfo = function (publisher, callback) {
   })
 }
 
+// batched interface... note multiple invocations of callback!
+
+Client.prototype.publishersInfo = function (publishers, callback) {
+  if (this.options.version === 'v1') return
+
+  // initial version is still serialized, future versions will use a new API call.
+
+  if (!Array.isArray(publishers)) publishers = [ publishers ]
+  if (publishers.length === 0) return
+
+  this.publishers = this.publishers ? this.publishers.concat(publishers) : underscore.clone(publishers)
+  this._publishersInfo(callback)
+}
+
+Client.prototype._publishersInfo = function (callback) {
+  const self = this
+
+  const publisher = underscore.first(self.publishers)
+
+  if (!publisher) return
+
+  self.publishers = underscore.rest(self.publishers)
+  self.publisherInfo(publisher, (err, result) => { callback(err, result || { publisher: publisher }) })
+
+  setTimeout(() => self._publishersInfo.bind(self)(callback),
+             random.randomInt({ min: 1, max: (this.options.debugP ? 1 : 250) }))
+}
+
 Client.prototype.getPromotion = function (lang, forPaymentId, callback) {
   const self = this
 
