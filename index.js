@@ -685,7 +685,7 @@ Client.prototype.publishersInfo = function (publishers, callback) {
   if (!Array.isArray(publishers)) publishers = [ publishers ]
   if (publishers.length === 0) return
 
-  if (this.publishers && this.publishers.length) {
+  if ((this.publishers) && (this.publishers.length > 0)) {
     // already in process...
 
     this.publishers = this.publishers.concat(publishers)
