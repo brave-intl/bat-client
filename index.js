@@ -685,7 +685,14 @@ Client.prototype.publishersInfo = function (publishers, callback) {
   if (!Array.isArray(publishers)) publishers = [ publishers ]
   if (publishers.length === 0) return
 
-  this.publishers = this.publishers ? this.publishers.concat(publishers) : underscore.clone(publishers)
+  if (this.publishers && this.publishers.length) {
+    // already in process...
+
+    this.publishers = this.publishers.concat(publishers)
+    return
+  }
+
+  this.publishers = underscore.clone(publishers)
   this._publishersInfo(callback)
 }
 
