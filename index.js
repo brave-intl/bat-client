@@ -703,11 +703,14 @@ Client.prototype._publishersInfo = function (callback) {
 
   if (!publisher) return
 
-  self.publishers = underscore.rest(self.publishers)
+  const remaining = underscore.rest(self.publishers)
+  self.publishers = remaining
   self.publisherInfo(publisher, (err, result) => { callback(err, result || { publisher: publisher }) })
 
-  setTimeout(() => self._publishersInfo.bind(self)(callback),
-             random.randomInt({ min: 1, max: (this.options.debugP ? 1 : 250) }))
+  if (remaining.length > 0) {
+    setTimeout(() => self._publishersInfo.bind(self)(callback),
+               random.randomInt({ min: 1, max: (this.options.debugP ? 1 : 250) }))
+  }
 }
 
 Client.prototype.getPromotion = function (lang, forPaymentId, callback) {
