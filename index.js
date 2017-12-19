@@ -669,7 +669,7 @@ Client.prototype.publisherInfo = function (publisher, callback) {
   path = '/v3/publisher/identity?' + querystring.stringify({ publisher: publisher })
   self._retryTrip(self, { path: path, method: 'GET', useProxy: true }, function (err, response, body) {
     self._log('publisherInfo', { method: 'GET', path: path, errP: !!err })
-    if (err) return callback(err)
+    if (err) return callback(err, null, response)
 
     callback(null, body)
   })
@@ -685,14 +685,8 @@ Client.prototype.publishersInfo = function (publishers, callback) {
   if (!Array.isArray(publishers)) publishers = [ publishers ]
   if (publishers.length === 0) return
 
-  if ((this.publishers) && (this.publishers.length > 0)) {
-    // already in process...
-
-    this.publishers = this.publishers.concat(publishers)
-    return
-  }
-
-  this.publishers = underscore.clone(publishers)
+  if (typeof this.batches === 'undefined') this.batches = 0
+  this.publishers = this.publishers ? this.publishers.concat(publishers) : underscore.clone(publishers)
   this._publishersInfo(callback)
 }
 
@@ -701,16 +695,28 @@ Client.prototype._publishersInfo = function (callback) {
 
   const publisher = underscore.first(self.publishers)
 
-  if (!publisher) return
+  if ((!publisher) || (self.batches > 3)) return
 
-  const remaining = underscore.rest(self.publishers)
-  self.publishers = remaining
-  self.publisherInfo(publisher, (err, result) => { callback(err, result || { publisher: publisher }) })
+  self.publishers = underscore.rest(self.publishers)
 
-  if (remaining.length > 0) {
-    setTimeout(() => self._publishersInfo.bind(self)(callback),
-               random.randomInt({ min: 1, max: (this.options.debugP ? 1 : 250) }))
-  }
+  self.batches++
+  self.publisherInfo(publisher, (err, result, response) => {
+    if ((err) && (response) && (response.statusCode === 429)) {
+      console.log('zzz...')
+      return setTimeout(() => {
+        console.log('...zzz')
+        self.batches--
+        self.publishersInfo(publisher, callback)
+      }, random.randomInt({ min: 1 * msecs.minute, max: 2 * msecs.minute }))
+    }
+
+    self.batches--
+    callback(err, result || { publisher: publisher })
+
+    self._publishersInfo.bind(self)(callback)
+  })
+
+  setTimeout(() => self._publishersInfo.bind(self)(callback), random.randomInt({ min: 250, max: 500 }))
 }
 
 Client.prototype.getPromotion = function (lang, forPaymentId, callback) {
@@ -1226,7 +1232,7 @@ Client.prototype._retryTrip = (self, params, callback, retry) => {
   method = method(retry.delay)
 
   self.roundtrip(params, (err, response, payload) => {
-    const code = Math.floor(response.statusCode / 100)
+    const code = response && Math.floor(response.statusCode / 100)
 
     if ((!err) || (code !== 5) || (retry.retries-- < 0)) return callback(err, response, payload)
 
