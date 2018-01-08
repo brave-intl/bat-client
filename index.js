@@ -936,6 +936,9 @@ Client.prototype._currentReconcile = function (callback) {
         let transaction
 
         self._log('_currentReconcile', { method: 'PUT', path: prefix + '...', errP: !!err })
+
+        delete self.state.currentReconcile
+
         if (err) return callback(err)
 
         transaction = { viewingId: viewingId,
@@ -952,7 +955,6 @@ Client.prototype._currentReconcile = function (callback) {
           submissionId: body.hash
         }
         self.state.transactions.push(transaction)
-        delete self.state.currentReconcile
 
         self.state.reconcileStamp = underscore.now() + (self.state.properties.days * msecs.day)
         if (self.options.verboseP) self.state.reconcileDate = new Date(self.state.reconcileStamp)
