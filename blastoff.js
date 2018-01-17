@@ -6,6 +6,8 @@ var underscore = require('underscore')
 var url = require('url')
 var uuid = require('uuid')
 
+const balance = require('bat-balance')
+
 /*
  *
  * parse the command arguments
@@ -14,7 +16,7 @@ var uuid = require('uuid')
 
 var usage = function () {
   console.log('usage: node ' + path.basename(process.argv[1]) +
-              ' [-1] [ -d ] [ -f file | -p personaID | -P] [ -l ] [ -s https://... ] [ -v ]')
+              ' [-1] [ -d ] [ -f file | -p personaID | -P] [ -l ] [ -[s|b] https://... ] [ -v ]')
   process.exit(1)
 }
 
@@ -61,7 +63,14 @@ while (argv.length > 0) {
   if (argv[0] === '-f') configFile = argv[1]
   else if (argv[0] === '-s') server = argv[1]
   else if (argv[0] === '-p') personaID = argv[1].toLowerCase()
-  else usage()
+  else if (argv[0] === '-b') {
+    let entry = underscore.findWhere(balance.providers, { environment: 'production' })
+    if (!entry) {
+      console.log('bat-balance module is mis-configured, no entry for the "production" environment')
+      process.exit(1)
+    }
+    entry.site = entry.server = argv[1]
+  } else usage()
 
   argv = argv.slice(2)
 }
@@ -94,7 +103,7 @@ var callback = function (err, result, delayTime) {
 
   if (result) {
     client.getWalletProperties(5, 'USD', (err, body) => {
-      if (err) return console.log('wallet properties error=' + err.toString())
+      if (err) return console.log('wallet properties error=' + JSON.stringify(err, null, 2))
 
       console.log('!!! wallet properties=' + JSON.stringify(body, null, 2))
       if (body.balance > 10.0) {

@@ -1,13 +1,13 @@
 {
   "name": "bat-client",
-  "version": "2.0.6",
+  "version": "2.0.7",
   "description": "An example of client code for the BAT.",
   "main": "index.js",
   "scripts": {
-    "blastoff": "DEBUG=*,-babel ./blastoff.js -d -l -v -s http://127.0.0.1:3001 -P",
-    "touchdown": "DEBUG=*,-babel ./blastoff.js -d -l -v -s http://127.0.0.1:3001 -f ./config.json",
-    "blastoff-staging": "DEBUG=*,-babel ./blastoff.js -d -l -v -s https://ledger-staging.mercury.basicattentiontoken.org -P",
-    "touchdown-staging": "DEBUG=*,-babel ./blastoff.js -d -l -v -s https://ledger-staging.mercury.basicattentiontoken.org -f ./config.json",
+    "blastoff": "DEBUG=*,-babel ./blastoff.js -d -l -v -s http://127.0.0.1:3001 -b http://127.0.0.1:3003 -P",
+    "touchdown": "DEBUG=*,-babel ./blastoff.js -d -l -v -s http://127.0.0.1:3001 -b http://127.0.0.1:3003 -f ./config.json",
+    "blastoff-staging": "DEBUG=*,-babel ./blastoff.js -d -l -v -s https://ledger-staging.mercury.basicattentiontoken.org -b https://balance-staging.mercury.basicattentiontoken.org -P",
+    "touchdown-staging": "DEBUG=*,-babel ./blastoff.js -d -l -v -s https://ledger-staging.mercury.basicattentiontoken.org -b https://balance-staging.mercury.basicattentiontoken.org -f ./config.json",
     "blastoff-mercury": "DEBUG=*,-babel ./blastoff.js -d -l -v -s https://ledger.mercury.basicattentiontoken.org -P",
     "touchdown-mercury": "DEBUG=*,-babel ./blastoff.js -d -l -v -s https://ledger.mercury.basicattentiontoken.org -f ./config.json",
     "blastoff-legacy": "DEBUG=*,-babel ./blastoff.js -d -l -v -s https://ledger.brave.com -1 -P",
