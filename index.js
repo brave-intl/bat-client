@@ -688,7 +688,7 @@ Client.prototype.publishersInfo = function (publishers, callback) {
   if (typeof this.batches === 'undefined') this.batches = 0
   if (!this.publishers) this.publishers = { requests: [], results: [], uniques: [] }
   publishers.forEach((publisher) => {
-    if (this.publishers.uniques.indexOf(publisher) !== -1) return console.log('skipping ' + publisher)
+    if (this.publishers.uniques.indexOf(publisher) !== -1) return
 
     this.publishers.requests.push(publisher)
     this.publishers.uniques.push(publisher)
