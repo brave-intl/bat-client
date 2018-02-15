@@ -675,7 +675,7 @@ Client.prototype.publisherInfo = function (publisher, callback) {
   })
 }
 
-// batched interface... note multiple invocations of callback!
+// batched interface... now a single callback invocation
 
 Client.prototype.publishersInfo = function (publishers, callback) {
   if (this.options.version === 'v1') return
@@ -686,32 +686,39 @@ Client.prototype.publishersInfo = function (publishers, callback) {
   if (publishers.length === 0) return
 
   if (typeof this.batches === 'undefined') this.batches = 0
-  this.publishers = this.publishers ? this.publishers.concat(publishers) : underscore.clone(publishers)
+  if (!this.publishers) this.publishers = { requests: [], results: [] }
+  this.publishers.requests = this.publishers.requests.length ? this.publishers.requests.concat(publishers)
+    : underscore.clone(publishers)
   this._publishersInfo(callback)
 }
 
 Client.prototype._publishersInfo = function (callback) {
   const self = this
 
-  const publisher = underscore.first(self.publishers)
+  const publisher = underscore.first(self.publishers.requests)
+  let results
 
-  if ((!publisher) || (self.batches > 3)) return
+  if (self.batches > 3) return
 
-  self.publishers = underscore.rest(self.publishers)
+  if (!publisher) {
+    results = self.publishers.results
+    self.publishers.results = []
+    return callback(null, results)
+  }
+  
+  self.publishers.requests = underscore.rest(self.publishers.requests)
 
   self.batches++
   self.publisherInfo(publisher, (err, result, response) => {
     if ((err) && (response) && (response.statusCode === 429)) {
-      console.log('zzz...')
       return setTimeout(() => {
-        console.log('...zzz')
         self.batches--
         self.publishersInfo(publisher, callback)
       }, random.randomInt({ min: 1 * msecs.minute, max: 2 * msecs.minute }))
     }
 
     self.batches--
-    callback(err, result || { publisher: publisher })
+    self.publishers.results.push(((!err) && (result) ? result : { publisher: publisher, err: err }))
 
     self._publishersInfo.bind(self)(callback)
   })
