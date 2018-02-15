@@ -710,7 +710,8 @@ Client.prototype._publishersInfo = function (callback) {
     results = self.publishers.results
     self.publishers.results = []
     self.publishers.uniques = []
-    return callback(null, results)
+    if (results.length) callback(null, results)
+    return
   }
 
   self.publishers.requests = underscore.rest(self.publishers.requests)
