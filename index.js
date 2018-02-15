@@ -701,11 +701,13 @@ Client.prototype._publishersInfo = function (callback) {
   if (self.batches > 3) return
 
   if (!publisher) {
+    if (self.batches > 0) return
+
     results = self.publishers.results
     self.publishers.results = []
     return callback(null, results)
   }
-  
+
   self.publishers.requests = underscore.rest(self.publishers.requests)
 
   self.batches++
