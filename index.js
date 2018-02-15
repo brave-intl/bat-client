@@ -686,9 +686,13 @@ Client.prototype.publishersInfo = function (publishers, callback) {
   if (publishers.length === 0) return
 
   if (typeof this.batches === 'undefined') this.batches = 0
-  if (!this.publishers) this.publishers = { requests: [], results: [] }
-  this.publishers.requests = this.publishers.requests.length ? this.publishers.requests.concat(publishers)
-    : underscore.clone(publishers)
+  if (!this.publishers) this.publishers = { requests: [], results: [], uniques: [] }
+  publishers.forEach((publisher) => {
+    if (this.publishers.uniques.indexOf(publisher) !== -1) return console.log('skipping ' + publisher)
+
+    this.publishers.requests.push(publisher)
+    this.publishers.uniques.push(publisher)
+  })
   this._publishersInfo(callback)
 }
 
@@ -705,6 +709,7 @@ Client.prototype._publishersInfo = function (callback) {
 
     results = self.publishers.results
     self.publishers.results = []
+    self.publishers.uniques = []
     return callback(null, results)
   }
 
