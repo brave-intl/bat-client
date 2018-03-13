@@ -1451,10 +1451,9 @@ Client.prototype.credentialSubmit = function (credential, surveyor, data, callba
 }
 
 Client.prototype._fuzzing = function (synopsis) {
-  const memo = {}
-  let advance, ratio, window
   let duration = 0
   let remaining = this.state.reconcileStamp - underscore.now()
+  let advance, memo, ratio, window
 
   if ((!synopsis) ||
       (remaining > (3 * msecs.day)) ||
@@ -1468,14 +1467,13 @@ Client.prototype._fuzzing = function (synopsis) {
 
   // at the moment hard-wired to 30 minutes every 30 days
   ratio = duration / (30 * msecs.minute)
-  underscore.extend(memo, {
-    duration: duration, ratio1: ratio, numFrames: synopsis.options.numFrames, frameSize: synopsis.options.frameSize
-  })
+  memo = { duration: duration, ratio1: ratio, numFrames: synopsis.options.numFrames, frameSize: synopsis.options.frameSize }
   window = synopsis.options.numFrames * synopsis.options.frameSize
   if (window > 0) ratio *= (30 * msecs.day) / window
+  if (ratio >= 1.0) return
+
   memo.window = window
   memo.ratio2 = ratio
-  if (ratio >= 1.0) return
 
   advance = Math.round((this.state.properties.days * msecs.day) * (1.0 - ratio))
   memo.advance1 = advance
