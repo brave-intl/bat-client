@@ -696,6 +696,14 @@ Client.prototype.publishersInfo = function (publishers, callback) {
   this._publishersInfo(callback)
 }
 
+Client.prototype.memo = function (who, args) {
+  if (!this.memos) this.memos = []
+  if (this.memos.length > 5) this.memos.splice(0, this.memos.length - 5)
+  this.memos.push(JSON.stringify({ who: who, what: args || {}, when: underscore.now() }))
+
+  this._log(who, args)
+}
+
 Client.prototype._publishersInfo = function (callback) {
   const self = this
 
@@ -1443,11 +1451,14 @@ Client.prototype.credentialSubmit = function (credential, surveyor, data, callba
 }
 
 Client.prototype._fuzzing = function (synopsis) {
-  let ratio, window
   let duration = 0
   let remaining = this.state.reconcileStamp - underscore.now()
+  let advance, memo, ratio, window
 
-  if ((!synopsis) || (remaining > (3 * msecs.day)) || (this.boolion(process.env.LEDGER_NO_FUZZING))) return
+  if ((!synopsis) ||
+      (remaining > (3 * msecs.day)) ||
+      (this.options && this.options.noFuzzing) ||
+      (this.boolion(process.env.LEDGER_NO_FUZZING))) return
 
   synopsis.prune()
   underscore.keys(synopsis.publishers).forEach((publisher) => {
@@ -1456,10 +1467,22 @@ Client.prototype._fuzzing = function (synopsis) {
 
   // at the moment hard-wired to 30 minutes every 30 days
   ratio = duration / (30 * msecs.minute)
+  memo = { duration: duration, ratio1: ratio, numFrames: synopsis.options.numFrames, frameSize: synopsis.options.frameSize }
   window = synopsis.options.numFrames * synopsis.options.frameSize
   if (window > 0) ratio *= (30 * msecs.day) / window
+  if (ratio >= 1.0) return
 
-  if (ratio < 1.0) this.state.reconcileStamp += Math.round((this.state.properties.days * msecs.day) * (1.0 - ratio))
+  memo.window = window
+  memo.ratio2 = ratio
+
+  advance = Math.round((this.state.properties.days * msecs.day) * (1.0 - ratio))
+  memo.advance1 = advance
+  if (advance > (3 * msecs.day)) advance = 3 * msecs.day
+  memo.advance2 = advance
+  this.state.reconcileStamp += advance
+  memo.reconcileStamp = this.state.reconcileStamp
+
+  this.memo('_fuzzing', memo)
 }
 /*
  *
