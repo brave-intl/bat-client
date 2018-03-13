@@ -696,6 +696,14 @@ Client.prototype.publishersInfo = function (publishers, callback) {
   this._publishersInfo(callback)
 }
 
+Client.prototype.memo = function (who, args) {
+  if (!this.memos) this.memos = []
+  if (this.memos.length > 5) this.memos.splice(0, this.memos.length - 5)
+  this.memos.push(JSON.stringify({ who: who, what: args || {}, when: underscore.now() }))
+
+  this._log(who, args)
+}
+
 Client.prototype._publishersInfo = function (callback) {
   const self = this
 
@@ -1148,14 +1156,6 @@ Client.prototype._getWalletParams = function (params) {
   return result
 }
 
-Client.prototype._memo = function (who, args) {
-  if (!this.memos) this.memos = []
-  if (this.memos.length > 5) this.memos.splice(0, this.memos.length - 5)
-  this.memos.push(JSON.stringify({ who: who, what: args || {}, when: underscore.now() }))
-
-  this._log(who, args)
-}
-
 Client.prototype._log = function (who, args) {
   const debugP = this.options ? this.options.debugP : false
   const loggingP = this.options ? this.options.loggingP : false
@@ -1484,7 +1484,7 @@ Client.prototype._fuzzing = function (synopsis) {
   this.state.reconcileStamp += advance
   memo.reconcileStamp = this.state.reconcileStamp
 
-  this._memo('_fuzzing', memo)
+  this.memo('_fuzzing', memo)
 }
 /*
  *
