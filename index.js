@@ -532,6 +532,27 @@ Client.prototype.recoverKeypair = function (passPhrase) {
   return this.getKeypair()
 }
 
+Client.prototype.isValidPassPhrase = function (passPhrase) {
+  if (!passPhrase || typeof passPhrase !== 'string') {
+    return false
+  }
+
+  passPhrase = passPhrase.split(' ')
+
+  if (passPhrase.length !== PASSPHRASE_LENGTH) {
+    this.memo('isValidPassPhrase', `invalid passphrase: must be ${PASSPHRASE_LENGTH} words`)
+    return false
+  }
+  try {
+    niceware.passphraseToBytes(passPhrase)
+  } catch (ex) {
+    this.memo('isValidPassPhrase', ex.toString())
+    return false
+  }
+
+  return true
+}
+
 Client.prototype.recoverWallet = function (recoveryId, passPhrase, callback) {
   const self = this
   let path, keypair
@@ -697,9 +718,15 @@ Client.prototype.publishersInfo = function (publishers, callback) {
 }
 
 Client.prototype.memo = function (who, args) {
+  let what
   if (!this.memos) this.memos = []
   if (this.memos.length > 5) this.memos.splice(0, this.memos.length - 5)
-  this.memos.push(JSON.stringify({ who: who, what: args || {}, when: underscore.now() }))
+  if (typeof args !== 'object') {
+    what = {reason: args}
+  } else {
+    what = args
+  }
+  this.memos.push(JSON.stringify({ who: who, what: what || {}, when: underscore.now() }))
 
   this._log(who, args)
 }

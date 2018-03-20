@@ -78,3 +78,17 @@ test('initWithFixupState', (t) => {
   t.equal(crypto.uint8ToHex(signingKey.secretKey), crypto.uint8ToHex(signingKey2.secretKey))
   t.equal(crypto.uint8ToHex(signingKey.publicKey), crypto.uint8ToHex(signingKey2.publicKey))
 })
+
+test('isValidPassPhrase', (t) => {
+  t.plan(5)
+
+  const client = new Ledger(null, options)
+
+  client.generateKeypair()
+  const passPhrase = client.getWalletPassphrase().join(' ')
+  t.equal(client.isValidPassPhrase(passPhrase), true, 'Should return true for valid passphrase')
+  t.equal(client.isValidPassPhrase(123), false, 'Should return false for number')
+  t.equal(client.isValidPassPhrase(null), false, 'Should return false for null')
+  t.equal(client.isValidPassPhrase(), false, 'Should return false for empty param')
+  t.equal(client.isValidPassPhrase('asdfasfsadf'), false, 'Should return false for random string')
+})
