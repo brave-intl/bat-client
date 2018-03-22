@@ -719,15 +719,16 @@ Client.prototype.publishersInfo = function (publishers, callback) {
 
 Client.prototype.memo = function (who, args) {
   let what
-  if (!this.memos) this.memos = []
-  if (this.memos.length > 5) this.memos.splice(0, this.memos.length - 5)
+
+  if (!this.state.memos) this.state.memos = []
+  if (this.state.memos.length > 10) this.state.memos.splice(0, this.state.memos.length - 10)
   if (typeof args !== 'object') {
     what = {reason: args}
   } else {
     what = args
   }
-  this.memos.push(JSON.stringify({ who: who, what: what || {}, when: underscore.now() }))
 
+  this.state.memos.push(JSON.stringify({ who: who, what: what || {}, when: underscore.now() }))
   this._log(who, args)
 }
 
