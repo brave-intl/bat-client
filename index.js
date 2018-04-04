@@ -994,7 +994,8 @@ Client.prototype._currentReconcile = function (callback) {
 
         transaction = { viewingId: viewingId,
           surveyorId: surveyorInfo.surveyorId,
-          contribution: { fiat: { amount: amount, currency: currency },
+          contribution: {
+            fiat: { amount: amount, currency: currency },
             rates: rates,
             satoshis: body.satoshis,
             altcurrency: body.altcurrency,
@@ -1129,12 +1130,13 @@ Client.prototype._prepareBallot = function (ballot, transaction, callback) {
     ballot.prepareBallot = underscore.defaults(body, { server: self.options.server })
 
     now = underscore.now()
-    delayTime = random.randomInt({ min: msecs.second, max: self.options.debugP ? msecs.minute : 3 * msecs.hour })
+    delayTime = random.randomInt({ min: 10 * msecs.second, max: (self.options.debugP ? 1 : 5) * msecs.minute })
     ballot.delayStamp = now + delayTime
     if (self.options.verboseP) ballot.delayDate = new Date(ballot.delayStamp)
 
-    self._log('_prepareBallot', { delayTime: msecs.minute })
-    callback(null, self.state, msecs.minute)
+    if (delayTime > msecs.minute) delayTime = msecs.minute
+    self._log('_prepareBallot', { delayTime: delayTime })
+    callback(null, self.state, delayTime)
   })
 }
 
