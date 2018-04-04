@@ -1130,7 +1130,7 @@ Client.prototype._prepareBallot = function (ballot, transaction, callback) {
     ballot.prepareBallot = underscore.defaults(body, { server: self.options.server })
 
     now = underscore.now()
-    delayTime = random.randomInt({ min: 10 * msecs.second, max: (this.options.debugP ? 1 : 5) * msecs.minute })
+    delayTime = random.randomInt({ min: 10 * msecs.second, max: (self.options.debugP ? 1 : 5) * msecs.minute })
     ballot.delayStamp = now + delayTime
     if (self.options.verboseP) ballot.delayDate = new Date(ballot.delayStamp)
 
