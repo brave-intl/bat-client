@@ -5,14 +5,13 @@ const path = require('path')
 const querystring = require('querystring')
 const url = require('url')
 const braveCrypto = require('brave-crypto')
+const passphraseUtil = braveCrypto.passphrase
 
 const anonize = require('node-anonize2-relic-emscripten')
 const backoff = require('@ambassify/backoff-strategies')
 const balance = require('bat-balance')
 const bg = require('bitgo')
 const Joi = require('joi')
-const niceware = require('niceware')
-const bip39 = require('bip39')
 const random = require('random-lib')
 const { sign } = require('http-request-signature')
 const stringify = require('json-stable-stringify')
@@ -21,8 +20,6 @@ const uuid = require('uuid')
 
 const batPublisher = require('bat-publisher')
 
-const NICEWARE_PASSPHRASE_LENGTH = 16
-const BIP39_PASSPHRASE_LENGTH = 24
 const SEED_LENGTH = 32
 const HKDF_SALT = new Uint8Array([ 126, 244, 99, 158, 51, 68, 253, 80, 133, 183, 51, 180, 77, 62, 74, 252, 62, 106, 96, 125, 241, 110, 134, 87, 190, 208, 158, 84, 125, 69, 246, 207, 162, 247, 107, 172, 37, 34, 53, 246, 105, 20, 215, 5, 248, 154, 179, 191, 46, 17, 6, 72, 210, 91, 10, 169, 145, 248, 22, 147, 117, 24, 105, 12 ])
 const LEDGER_SERVERS = {
@@ -525,29 +522,17 @@ Client.prototype.getWalletPassphrase = function (state, options) {
 
   if ((wallet.keyinfo) && (wallet.keyinfo.seed)) {
     const seed = Buffer.from(wallet.keyinfo.seed)
+    const passPhrase = passphraseUtil.fromBytesOrHex(seed, options && options.useNiceware)
 
-    if (options && options.useNiceware === true) {
-      return niceware.bytesToPassphrase(seed)
-    }
-
-    const passPhrase = bip39.entropyToMnemonic(seed.toString('hex'))
-    return passPhrase.split(' ')
+    return passPhrase && passPhrase.split(' ')
   }
 }
 
 Client.prototype.recoverKeypair = function (passPhrase) {
   var seed
   this._log('recoverKeypair')
-  const passPhraseWords = passPhrase.split(' ')
-  if (![NICEWARE_PASSPHRASE_LENGTH, BIP39_PASSPHRASE_LENGTH].includes(passPhraseWords.length)) {
-    throw new Error(`invalid passphrase: must be either ${BIP39_PASSPHRASE_LENGTH} or ${NICEWARE_PASSPHRASE_LENGTH} words`)
-  }
   try {
-    if (passPhraseWords.length === BIP39_PASSPHRASE_LENGTH) {
-      seed = Buffer.from(bip39.mnemonicToEntropy(passPhrase), 'hex')
-    } else {
-      seed = niceware.passphraseToBytes(passPhraseWords)
-    }
+    seed = Buffer.from(passphraseUtil.toBytes32(passPhrase))
   } catch (ex) {
     throw new Error('invalid passphrase:' + ex.toString())
   }
@@ -567,19 +552,8 @@ Client.prototype.isValidPassPhrase = function (passPhrase) {
     return false
   }
 
-  const passPhraseWords = passPhrase.split(' ')
-
-  if (![NICEWARE_PASSPHRASE_LENGTH, BIP39_PASSPHRASE_LENGTH].includes(passPhraseWords.length)) {
-    this.memo('isValidPassPhrase', `invalid passphrase: must be either ${BIP39_PASSPHRASE_LENGTH} or ${NICEWARE_PASSPHRASE_LENGTH} words`)
-    return false
-  }
-
   try {
-    if (passPhraseWords.length === BIP39_PASSPHRASE_LENGTH) {
-      Buffer.from(bip39.mnemonicToEntropy(passPhrase), 'hex')
-    } else {
-      niceware.passphraseToBytes(passPhraseWords)
-    }
+    passphraseUtil.toBytes32(passPhrase)
   } catch (ex) {
     this.memo('isValidPassPhrase', ex.toString())
     return false
