@@ -5,13 +5,16 @@ const test = require('tape')
 const options = { debugP: true, version: 'v2' }
 
 test('getWalletPassphrase', (t) => {
-  t.plan(1)
+  t.plan(2)
   const client = new Ledger(null, options)
 
   client.generateKeypair()
 
-  const passPhrase = client.getWalletPassphrase()
-  t.equal(passPhrase.length, 16)
+  const bip39PassPhrase = client.getWalletPassphrase()
+  t.equal(bip39PassPhrase.length, 24, 'bip39 passphrase should be 24 words')
+
+  const nicewarePassPhrase = client.getWalletPassphrase(undefined, {useNiceware: true})
+  t.equal(nicewarePassPhrase.length, 16, 'niceware passphrase should be 16 words')
 })
 
 test('getKeypair', (t) => {
@@ -27,16 +30,24 @@ test('getKeypair', (t) => {
 })
 
 test('recoverKeypair', (t) => {
-  t.plan(2)
+  t.plan(4)
 
   const client = new Ledger(null, options)
 
+  // test with bip39 passphrase
   const signingKey = client.generateKeypair()
-  const passPhrase = client.getWalletPassphrase().join(' ')
+  const bip39PassPhrase = client.getWalletPassphrase().join(' ')
 
   const client2 = new Ledger(null, options)
-  t.equal(crypto.uint8ToHex(client2.recoverKeypair(passPhrase).secretKey), crypto.uint8ToHex(signingKey.secretKey))
-  t.equal(crypto.uint8ToHex(client2.recoverKeypair(passPhrase).publicKey), crypto.uint8ToHex(signingKey.publicKey))
+  t.equal(crypto.uint8ToHex(client2.recoverKeypair(bip39PassPhrase).secretKey), crypto.uint8ToHex(signingKey.secretKey))
+  t.equal(crypto.uint8ToHex(client2.recoverKeypair(bip39PassPhrase).publicKey), crypto.uint8ToHex(signingKey.publicKey))
+
+  // test with niceware passphrase
+  const nicewarePassPhrase = client.getWalletPassphrase(undefined, {useNiceware: true}).join(' ')
+
+  const client3 = new Ledger(null, options)
+  t.equal(crypto.uint8ToHex(client3.recoverKeypair(nicewarePassPhrase).secretKey), crypto.uint8ToHex(signingKey.secretKey))
+  t.equal(crypto.uint8ToHex(client3.recoverKeypair(nicewarePassPhrase).publicKey), crypto.uint8ToHex(signingKey.publicKey))
 })
 
 // Tests workaround for #20
@@ -80,15 +91,18 @@ test('initWithFixupState', (t) => {
 })
 
 test('isValidPassPhrase', (t) => {
-  t.plan(5)
+  t.plan(6)
 
   const client = new Ledger(null, options)
 
   client.generateKeypair()
-  const passPhrase = client.getWalletPassphrase().join(' ')
-  t.equal(client.isValidPassPhrase(passPhrase), true, 'Should return true for valid passphrase')
+  const bip39PassPhrase = client.getWalletPassphrase().join(' ')
+  t.equal(client.isValidPassPhrase(bip39PassPhrase), true, 'Should return true for valid passphrase')
   t.equal(client.isValidPassPhrase(123), false, 'Should return false for number')
   t.equal(client.isValidPassPhrase(null), false, 'Should return false for null')
   t.equal(client.isValidPassPhrase(), false, 'Should return false for empty param')
   t.equal(client.isValidPassPhrase('asdfasfsadf'), false, 'Should return false for random string')
+
+  const nicewarePassPhrase = client.getWalletPassphrase(undefined, {useNiceware: true}).join(' ')
+  t.equal(client.isValidPassPhrase(nicewarePassPhrase), true, 'Should return true for legacy niceware passphrase')
 })
