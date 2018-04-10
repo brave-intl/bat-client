@@ -113,6 +113,13 @@ Client.prototype.sync = function (callback) {
   if (typeof callback !== 'function') throw new Error('sync missing callback parameter')
 
   if (!self.state.properties) self.state.properties = {}
+  if ((self.state.reconcileStamp === null) || (isNaN(self.state.reconcileStamp))) {
+    if (self.state.properties.reconcileDate) self.state.reconcileStamp = new Date(self.state.properties.reconcileDate).getTime()
+    if (self.state.properties.days) self.state.reconcileStamp = self.state.properties.days * msecs.day
+    if ((self.state.reconcileStamp === null) || (isNaN(self.state.reconcileStamp))) self.state.reconcileStamp = 14 * msecs.day
+    self._log('sync', { reconcileStamp: self.state.reconcileStamp })
+    return self.setTimeUntilReconcile(null, callback)
+  }
   // the caller is responsible for checking that the reconcileStamp is too historic...
   if ((self.state.properties.days) && (self.state.reconcileStamp > (now + (self.state.properties.days * msecs.day)))) {
     self._log('sync', { reconcileStamp: self.state.reconcileStamp })
@@ -1509,8 +1516,9 @@ Client.prototype._fuzzing = function (synopsis) {
   memo.advance1 = advance
   if (advance > (3 * msecs.day)) advance = 3 * msecs.day
   memo.advance2 = advance
-  this.state.reconcileStamp += advance
+  if (advance) this.state.reconcileStamp += advance
   memo.reconcileStamp = this.state.reconcileStamp
+  memo.reconcileDate = new Date(memo.reconcileStamp)
 
   this.memo('_fuzzing', memo)
 }
