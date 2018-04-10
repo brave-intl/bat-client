@@ -116,11 +116,8 @@ Client.prototype.sync = function (callback) {
 
   if (!self.state.properties) self.state.properties = {}
   if ((self.state.reconcileStamp === null) || (isNaN(self.state.reconcileStamp))) {
-    if (self.state.properties.reconcileDate) self.state.reconcileStamp = new Date(self.state.properties.reconcileDate).getTime()
-    else if (self.state.properties.days) self.state.reconcileStamp = self.state.properties.days * msecs.day
-
     // WHY: isNaN(null) === false
-    if ((self.state.reconcileStamp === null) || (isNaN(self.state.reconcileStamp))) self.state.reconcileStamp = 14 * msecs.day
+    self.state.reconcileStamp = now + (14 * msecs.day)
     self._log('sync', { reconcileStamp: self.state.reconcileStamp })
     return self.setTimeUntilReconcile(null, callback)
   }
