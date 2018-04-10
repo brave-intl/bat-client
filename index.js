@@ -119,7 +119,7 @@ Client.prototype.sync = function (callback) {
     // WHY: isNaN(null) === false
     self.state.reconcileStamp = now + (14 * msecs.day)
     self._log('sync', { reconcileStamp: self.state.reconcileStamp })
-    return self.setTimeUntilReconcile(null, callback)
+    return self.setTimeUntilReconcile(self.state.reconcileStamp, callback)
   }
   // the caller is responsible for checking that the reconcileStamp is too historic...
   if ((self.state.properties.days) && (self.state.reconcileStamp > (now + (self.state.properties.days * msecs.day)))) {
