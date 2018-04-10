@@ -110,14 +110,19 @@ Client.prototype.sync = function (callback) {
   const self = this
 
   const now = underscore.now()
-  let ballot, ballots, i, transaction, updateP
+  let ballot, ballots, i, memo, transaction, updateP
 
   if (typeof callback !== 'function') throw new Error('sync missing callback parameter')
 
   if (!self.state.properties) self.state.properties = {}
   if ((self.state.reconcileStamp === null) || (isNaN(self.state.reconcileStamp))) {
     // WHY: isNaN(null) === false
+    memo = { prevoiusStamp: self.state.reconcileStamp }
     self.state.reconcileStamp = now + (14 * msecs.day)
+    memo.reconcileStamp = self.state.reconcileStamp
+    memo.reconcileDate = new Date(self.state.reconcileStamp)
+    self.memo('sync', memo)
+
     self._log('sync', { reconcileStamp: self.state.reconcileStamp })
     return self.setTimeUntilReconcile(self.state.reconcileStamp, callback)
   }
