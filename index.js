@@ -110,11 +110,22 @@ Client.prototype.sync = function (callback) {
   const self = this
 
   const now = underscore.now()
-  let ballot, ballots, i, transaction, updateP
+  let ballot, ballots, i, memo, transaction, updateP
 
   if (typeof callback !== 'function') throw new Error('sync missing callback parameter')
 
   if (!self.state.properties) self.state.properties = {}
+  if ((self.state.reconcileStamp === null) || (isNaN(self.state.reconcileStamp))) {
+    console.log('day', 14 * msecs.day)
+    memo = { prevoiusStamp: self.state.reconcileStamp }
+    self.state.reconcileStamp = now + (14 * msecs.day)
+    memo.reconcileStamp = self.state.reconcileStamp
+    memo.reconcileDate = new Date(self.state.reconcileStamp)
+    self.memo('sync', memo)
+
+    self._log('sync', { reconcileStamp: self.state.reconcileStamp })
+    return self.setTimeUntilReconcile(self.state.reconcileStamp, callback)
+  }
   // the caller is responsible for checking that the reconcileStamp is too historic...
   if ((self.state.properties.days) && (self.state.reconcileStamp > (now + (self.state.properties.days * msecs.day)))) {
     self._log('sync', { reconcileStamp: self.state.reconcileStamp })
@@ -337,7 +348,13 @@ Client.prototype.getWalletProperties = function (amount, currency, callback) {
 Client.prototype.setTimeUntilReconcile = function (timestamp, callback) {
   const now = underscore.now()
 
-  if ((!timestamp) || (timestamp < now)) timestamp = now + (this.state.properties.days * msecs.day)
+  if ((!timestamp) || (timestamp < now)) {
+    let days = 30
+    if (this.state && this.state.properties && this.state.properties.days) {
+      days = this.state.properties.days
+    }
+    timestamp = now + (days * msecs.day)
+  }
   this.state.reconcileStamp = timestamp
   if (this.options.verboseP) this.state.reconcileDate = new Date(this.state.reconcileStamp)
 
@@ -1527,8 +1544,9 @@ Client.prototype._fuzzing = function (synopsis) {
   memo.advance1 = advance
   if (advance > (3 * msecs.day)) advance = 3 * msecs.day
   memo.advance2 = advance
-  this.state.reconcileStamp += advance
+  if (advance) this.state.reconcileStamp += advance
   memo.reconcileStamp = this.state.reconcileStamp
+  memo.reconcileDate = new Date(memo.reconcileStamp)
 
   this.memo('_fuzzing', memo)
 }

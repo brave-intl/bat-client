@@ -106,3 +106,41 @@ test('isValidPassPhrase', (t) => {
   const nicewarePassPhrase = client.getWalletPassphrase(undefined, {useNiceware: true}).join(' ')
   t.equal(client.isValidPassPhrase(nicewarePassPhrase), true, 'Should return true for legacy niceware passphrase')
 })
+
+test('sync', (t) => {
+  t.plan(3)
+  let client = new Ledger(null, options)
+  const days14 = 1209600000
+
+  t.equal(client.state.reconcileStamp, undefined, 'Should be undefined at start')
+
+  client.sync(() => {})
+
+  const now = new Date().getTime()
+  const newStamp = now + days14
+
+  t.equal(client.state.reconcileStamp, newStamp, 'Should set new reconcileStamp')
+  console.log(client.state.reconcileStamp)
+
+  client = new Ledger(null, options)
+  client.setTimeUntilReconcile(null, () => {})
+  const time = client.state.reconcileStamp
+  client.sync(() => {})
+  t.equal(client.state.reconcileStamp, time, 'Should not change timestamp if is set')
+})
+
+test('setTimeUntilReconcile', (t) => {
+  t.plan(3)
+
+  const client = new Ledger(null, options)
+  const newTimestamp = new Date().getTime() + 10000000
+  const now = new Date().getTime() + 2592000000
+
+  t.equal(client.state.reconcileStamp, undefined, 'Should be undefined at start')
+
+  client.setTimeUntilReconcile(newTimestamp, () => {})
+  t.equal(client.state.reconcileStamp, newTimestamp, 'Should set provided timestamp')
+
+  client.setTimeUntilReconcile(null, () => {})
+  t.equal(client.state.reconcileStamp, now, 'Should set new timestamp to now + 30 days')
+})
