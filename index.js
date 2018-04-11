@@ -116,7 +116,7 @@ Client.prototype.sync = function (callback) {
 
   if (!self.state.properties) self.state.properties = {}
   if ((self.state.reconcileStamp === null) || (isNaN(self.state.reconcileStamp))) {
-    // WHY: isNaN(null) === false
+    console.log('day', 14 * msecs.day)
     memo = { prevoiusStamp: self.state.reconcileStamp }
     self.state.reconcileStamp = now + (14 * msecs.day)
     memo.reconcileStamp = self.state.reconcileStamp
@@ -348,7 +348,13 @@ Client.prototype.getWalletProperties = function (amount, currency, callback) {
 Client.prototype.setTimeUntilReconcile = function (timestamp, callback) {
   const now = underscore.now()
 
-  if ((!timestamp) || (timestamp < now)) timestamp = now + (this.state.properties.days * msecs.day)
+  if ((!timestamp) || (timestamp < now)) {
+    let days = 30
+    if (this.state && this.state.properties && this.state.properties.days) {
+      days = this.state.properties.days
+    }
+    timestamp = now + (days * msecs.day)
+  }
   this.state.reconcileStamp = timestamp
   if (this.options.verboseP) this.state.reconcileDate = new Date(this.state.reconcileStamp)
 
