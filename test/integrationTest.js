@@ -34,25 +34,6 @@ test('recoverWallet', async (t) => {
   })
 })
 
-test('transition', async (t) => {
-  t.plan(3)
-  const oldOptions = { debugP: true, version: 'v1', environment: 'staging' }
-  const client = new Ledger(null, oldOptions)
-
-  client.sync(function () {
-    const newClient = new Ledger(null, options)
-    newClient.sync(function () {
-      const newPaymentId = newClient.getPaymentId()
-
-      client.transition(newPaymentId, function (err, properties) {
-        t.false(err)
-        t.true(properties)
-        t.true(properties.reconcileStamp)
-      })
-    })
-  })
-})
-
 test('balance', async (t) => {
   t.plan(2)
   const client = new Ledger(null, options)
@@ -66,7 +47,7 @@ test('balance', async (t) => {
 })
 
 test('promotion', async (t) => {
-  t.plan(9)
+  t.plan(7)
   const client = new Ledger(null, options)
   const client2 = new Ledger(null, options)
 
@@ -84,11 +65,6 @@ test('promotion', async (t) => {
           t.equal(resp.probi, grantProbi)
           client2.getPromotion(null, client.getPaymentId(), function (err, resp) {
             t.true(err)
-            client.setPromotion(promotionId, function (err, resp, respObj) {
-              // resp is response body, respObj is response object
-              t.true(err)
-              t.equal(respObj.statusCode, 422)
-            })
           })
         })
       })
