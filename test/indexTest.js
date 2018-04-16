@@ -4,6 +4,17 @@ const test = require('tape')
 
 const options = { debugP: true, version: 'v2' }
 
+/**
+ * assert that values v1 and v2 differ by no more than tol
+ **/
+const assertWithinBounds = (t, v1, v2, tol, msg) => {
+  if (v1 > v2) {
+    t.true((v1 - v2) <= tol, msg)
+  } else {
+    t.true((v2 - v1) <= tol, msg)
+  }
+}
+
 test('getWalletPassphrase', (t) => {
   t.plan(2)
   const client = new Ledger(null, options)
@@ -119,7 +130,7 @@ test('sync', (t) => {
   const now = new Date().getTime()
   const newStamp = now + days14
 
-  t.equal(client.state.reconcileStamp, newStamp, 'Should set new reconcileStamp')
+  assertWithinBounds(t, client.state.reconcileStamp, newStamp, 1000, 'Should set new reconcileStamp')
   console.log(client.state.reconcileStamp)
 
   client = new Ledger(null, options)
@@ -142,5 +153,5 @@ test('setTimeUntilReconcile', (t) => {
   t.equal(client.state.reconcileStamp, newTimestamp, 'Should set provided timestamp')
 
   client.setTimeUntilReconcile(null, () => {})
-  t.equal(client.state.reconcileStamp, now, 'Should set new timestamp to now + 30 days')
+  assertWithinBounds(t, client.state.reconcileStamp, now, 1000, 'Should set new timestamp to now + 30 days')
 })

@@ -121,7 +121,7 @@ Client.prototype.sync = function (callback) {
     self.memo('sync', memo)
 
     self._log('sync', { reconcileStamp: self.state.reconcileStamp })
-    return self.setTimeUntilReconcile(self.state.reconcileStamp, callback)
+    self.setTimeUntilReconcile(self.state.reconcileStamp)
   }
   // the caller is responsible for checking that the reconcileStamp is too historic...
   if ((self.state.properties.days) && (self.state.reconcileStamp > (now + (self.state.properties.days * msecs.day)))) {
@@ -355,7 +355,9 @@ Client.prototype.setTimeUntilReconcile = function (timestamp, callback) {
   this.state.reconcileStamp = timestamp
   if (this.options.verboseP) this.state.reconcileDate = new Date(this.state.reconcileStamp)
 
-  callback(null, this.state)
+  if (callback) {
+    callback(null, this.state)
+  }
 }
 
 Client.prototype.timeUntilReconcile = function (synopsis) {
