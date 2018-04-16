@@ -1,0 +1,9 @@
+language: node_js
+node_js:
+  - "node"
+dist: trusty
+sudo: required
+group: edge
+script:
+  - npm run test-security && npm run test-index && npm run test-integration
+  
