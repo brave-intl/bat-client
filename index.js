@@ -10,7 +10,6 @@ const passphraseUtil = braveCrypto.passphrase
 const anonize = require('node-anonize2-relic-emscripten')
 const backoff = require('@ambassify/backoff-strategies')
 const balance = require('bat-balance')
-const bg = require('bitgo')
 const Joi = require('joi')
 const random = require('random-lib')
 const { sign } = require('http-request-signature')
@@ -623,54 +622,6 @@ Client.prototype.busyP = function () {
   return busyP
 }
 
-Client.prototype.transition = function (newPaymentId, callback) {
-  const self = this
-
-  const prefix = '/v2/wallet/'
-  let path
-
-  if (self.busyP()) return setTimeout(() => { callback(new Error('busy')) }, 0)
-
-  path = prefix + self.state.properties.wallet.paymentId + '/transition/' + newPaymentId
-  self._retryTrip(self, { path: path, method: 'GET' }, function (err, response, body) {
-    let wallet
-
-    self._log('transition', { method: 'GET', path: prefix + '.../transition/...', errP: !!err })
-
-    if (response.statusCode === 402) {
-      // 402: Payment Required - indicates the balance is too low to transfer due to fees
-      //                         no transfer from BTC to BAT is needed, the balance is equivalent to zero
-      return callback(null, underscore.pick(self.state, [ 'ballots', 'transactions', 'reconcileStamp', 'reconcileDate' ]))
-    }
-
-    if (err) return callback(err)
-
-    if (!body.unsignedTx) return callback(new Error('expecting an unsignedTx'))
-
-    const bitgo = new bg.BitGo({ env: 'prod' })
-
-    wallet = bitgo.newWalletObject({ wallet: { id: self.state.properties.wallet.address } })
-    wallet.signTransaction({ transactionHex: body.unsignedTx.transactionHex,
-      unspents: body.unsignedTx.unspents,
-      keychain: self.state.properties.wallet.keychains.user
-    }, function (err, signedTx) {
-      let payload
-
-      self._log('transition', { wallet: 'signTransaction', errP: !!err })
-      if (err) return callback(err)
-
-      path = prefix + self.state.properties.wallet.paymentId + '/transition'
-      payload = { signedTx: signedTx.tx }
-      self._retryTrip(self, { path: path, method: 'PUT', payload: payload }, function (err, response, body) {
-        self._log('transition', { method: 'PUT', path: prefix + '...', errP: !!err })
-        if (err) return callback(err)
-
-        callback(null, underscore.pick(self.state, [ 'ballots', 'transactions', 'reconcileStamp', 'reconcileDate' ]))
-      })
-    })
-  })
-}
-
 Client.prototype.transitioned = function (oldState) {
   return underscore.defaults(this.state, oldState)
 }
@@ -851,7 +802,7 @@ Client.prototype._registerPersona = function (callback) {
     credential = new anonize.Credential(personaId, body.registrarVK)
 
     self.credentialRequest(credential, function (err, result) {
-      let body, keychains, keypair, octets, passphrase, payload
+      let body, keychains, keypair, octets, payload
 
       if (err) return callback(err)
 
@@ -881,14 +832,6 @@ Client.prototype._registerPersona = function (callback) {
             octets: octets
           }
         }
-      } else {
-        const bitgo = new bg.BitGo({ env: 'prod' })
-
-        passphrase = self.options.debugP ? 'hello world.' : uuid.v4().toLowerCase()
-        keychains = { user: bitgo.keychains().create(), passphrase: passphrase }
-        keychains.user.encryptedXprv = bitgo.encrypt({ password: keychains.passphrase, input: keychains.user.xprv })
-        keychains.user.path = 'm'
-        payload = { keychains: { user: underscore.pick(keychains.user, [ 'xpub', 'path', 'encryptedXprv' ]) } }
       }
       payload.proof = result.proof
 
@@ -957,7 +900,7 @@ Client.prototype._currentReconcile = function (callback) {
   const prefix = self.options.prefix + '/wallet/'
   const surveyorInfo = self.state.currentReconcile.surveyorInfo
   const viewingId = self.state.currentReconcile.viewingId
-  let fee, path, rates, suffix, wallet
+  let fee, path, rates, suffix
 
   suffix = '?' + self._getWalletParams({ amount: amount, currency: currency })
   path = prefix + self.state.properties.wallet.paymentId + suffix
@@ -1055,19 +998,6 @@ Client.prototype._currentReconcile = function (callback) {
 
       return reconcile(payload)
     }
-
-    const bitgo = new bg.BitGo({ env: 'prod' })
-
-    wallet = bitgo.newWalletObject({ wallet: { id: self.state.properties.wallet.address } })
-    wallet.signTransaction({ transactionHex: body.unsignedTx.transactionHex,
-      unspents: body.unsignedTx.unspents,
-      keychain: self.state.properties.wallet.keychains.user
-    }, function (err, signedTx) {
-      self._log('_currentReconcile', { wallet: 'signTransaction', errP: !!err })
-      if (err) return callback(err)
-
-      reconcile({ signedTx: signedTx.tx })
-    })
   })
 }
 
