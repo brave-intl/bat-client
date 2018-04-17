@@ -115,7 +115,7 @@ test('isValidPassPhrase', (t) => {
   t.equal(client.isValidPassPhrase('asdfasfsadf'), false, 'Should return false for random string')
 
   const nicewarePassPhrase = client.getWalletPassphrase(undefined, {useNiceware: true}).join(' ')
-  t.equal(client.isValidPassPhrase(nicewarePassPhrase), true, 'Should return true for legacy niceware passphrase')
+  t.equal(client.isValidPassPhrase(nicewarePassPhrase), false, 'Should return true for legacy niceware passphrase')
 })
 
 test('sync', (t) => {
