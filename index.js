@@ -112,7 +112,6 @@ Client.prototype.sync = function (callback) {
 
   if (!self.state.properties) self.state.properties = {}
   if ((self.state.reconcileStamp === null) || (isNaN(self.state.reconcileStamp))) {
-    console.log('day', 14 * msecs.day)
     memo = { prevoiusStamp: self.state.reconcileStamp }
     self.state.reconcileStamp = now + (14 * msecs.day)
     memo.reconcileStamp = self.state.reconcileStamp
