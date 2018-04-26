@@ -140,10 +140,6 @@ Client.prototype.sync = function (callback) {
   }
   if (!self.state.ruleset) {
     self.state.ruleset = [
-      { condition: 'SLD === \'youtube.com\' && pathname.indexOf(\'/channel/\') === 0',
-        consequent: '\'youtube#channel:\' + pathname.split(\'/\')[2]',
-        description: 'youtube channels'
-      },
       {
         condition: '/^[a-z][a-z].gov$/.test(SLD)',
         consequent: 'QLD + \'.\' + SLD',
