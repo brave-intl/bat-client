@@ -92,7 +92,6 @@ const Client = function (personaId, options, state) {
 
   this.seqno = 0
   this.callbacks = {}
-  if (!self.options.createWorker) self.initializeHelper()
 }
 
 const msecs = {
@@ -615,10 +614,6 @@ Client.prototype.busyP = function () {
   })
 
   return busyP
-}
-
-Client.prototype.transitioned = function (oldState) {
-  return underscore.defaults(this.state, oldState)
 }
 
 Client.prototype.publisherTimestamp = function (callback) {
@@ -1295,38 +1290,6 @@ Client.prototype._roundTrip = function (params, callback) {
   underscore.keys(params.headers).forEach(function (header) { console.log('<<< ' + header + ': ' + params.headers[header]) })
   console.log('<<<')
   if (params.payload) console.log('<<< ' + JSON.stringify(params.payload, null, 2).split('\n').join('\n<<< '))
-}
-
-/*
- * anonize2 helper
- */
-
-Client.prototype.initializeHelper = function () {
-/*
-  const self = this
-
-  this.helper = require('child_process').fork(require('path').join(__dirname, 'helper.js')).on('message', function (response) {
-    const state = self.callbacks[response.msgno]
-
-    if (!state) return console.log('! >>> not expecting msgno=' + response.msgno)
-
-    delete self.callbacks[response.msgno]
-    if (state.verboseP) console.log('! >>> ' + JSON.stringify(response, null, 2))
-    state.callback(response.err, response.result)
-  }).on('close', function (code, signal) {
-    self.helper = null
-    console.log('! >>> close ' + JSON.stringify({ code: code, signal: signal }))
-  }).on('disconnect', function () {
-    self.helper = null
-    console.log('! >>> disconnect')
-  }).on('error', function (err) {
-    self.helper = null
-    console.log('! >>> error ' + err.toString())
-  }).on('exit', function (code, signal) {
-    self.helper = null
-    console.log('! >>> exit ' + JSON.stringify({ code: code, signal: signal }))
-  })
- */
 }
 
 Client.prototype.credentialWorker = function (operation, payload, callback) {
