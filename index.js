@@ -353,26 +353,25 @@ Client.prototype.setTimeUntilReconcile = function (timestamp, callback) {
   }
 }
 
-Client.prototype.timeUntilReconcile = function (synopsis) {
+Client.prototype.timeUntilReconcile = function (synopsis, fuzzyCallback) {
   if (!this.state.reconcileStamp) {
-    this._log('isReadyToReconcile', { errP: true })
+    this._log('timeUntilReconcile', { errP: true })
     throw new Error('Ledger client initialization incomplete.')
   }
 
   if (this.state.currentReconcile) {
-    this._log('isReadyToReconcile', { reason: 'already reconciling', reconcileStamp: this.state.reconcileStamp })
+    this._log('timeUntilReconcile', { reason: 'already reconciling', reconcileStamp: this.state.reconcileStamp })
     return false
   }
 
-  this._fuzzing(synopsis)
+  this._fuzzing(synopsis, fuzzyCallback)
   return (this.state.reconcileStamp - underscore.now())
 }
 
-Client.prototype.isReadyToReconcile = function (synopsis) {
-  const delayTime = this.timeUntilReconcile()
+Client.prototype.isReadyToReconcile = function (synopsis, fuzzyCallback) {
+  const delayTime = this.timeUntilReconcile(synopsis, fuzzyCallback)
 
   this._log('isReadyToReconcile', { delayTime: delayTime })
-  this._fuzzing(synopsis)
   return ((typeof delayTime === 'boolean') ? delayTime : (delayTime <= 0))
 }
 
@@ -1379,7 +1378,7 @@ Client.prototype.credentialSubmit = function (credential, surveyor, data, callba
   return callback(null, { payload: payload })
 }
 
-Client.prototype._fuzzing = function (synopsis) {
+Client.prototype._fuzzing = function (synopsis, callback) {
   let duration = 0
   let remaining = this.state.reconcileStamp - underscore.now()
   let advance, memo, ratio, window
@@ -1411,6 +1410,10 @@ Client.prototype._fuzzing = function (synopsis) {
   if (advance) this.state.reconcileStamp += advance
   memo.reconcileStamp = this.state.reconcileStamp
   memo.reconcileDate = new Date(memo.reconcileStamp)
+
+  if (callback) {
+    callback(advance)
+  }
 
   this.memo('_fuzzing', memo)
 }
