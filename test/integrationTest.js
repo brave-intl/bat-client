@@ -46,7 +46,7 @@ test('balance', async (t) => {
   })
 })
 
-test('promotion', async (t) => {
+test.skip('promotion', async (t) => {
   t.plan(7)
   const client = new Ledger(null, options)
   const client2 = new Ledger(null, options)
