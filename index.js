@@ -1405,9 +1405,11 @@ Client.prototype._fuzzing = function (synopsis, callback) {
 
   advance = Math.round((this.state.properties.days * msecs.day) * (1.0 - ratio))
   memo.advance1 = advance
-  if (advance > (3 * msecs.day)) advance = 3 * msecs.day
+  if (advance > (2 * msecs.day)) advance = 2 * msecs.day
   memo.advance2 = advance
-  if (advance) this.state.reconcileStamp += advance
+  if (advance) {
+    this.state.reconcileStamp = underscore.now() + 3 * msecs.day + advance
+  }
   memo.reconcileStamp = this.state.reconcileStamp
   memo.reconcileDate = new Date(memo.reconcileStamp)
 

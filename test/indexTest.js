@@ -4,6 +4,13 @@ const test = require('tape')
 
 const options = { debugP: true, version: 'v2' }
 
+const msecs = {
+  day: 24 * 60 * 60 * 1000,
+  hour: 60 * 60 * 1000,
+  minute: 60 * 1000,
+  second: 1000
+}
+
 /**
  * assert that values v1 and v2 differ by no more than tol
  **/
@@ -154,4 +161,59 @@ test('setTimeUntilReconcile', (t) => {
 
   client.setTimeUntilReconcile(null, () => {})
   assertWithinBounds(t, client.state.reconcileStamp, now, 1000, 'Should set new timestamp to now + 30 days')
+})
+
+test('_fuzzing', (t) => {
+  t.plan(8)
+  const client = new Ledger(null, options, {properties: {days: 30}})
+
+  const synopsis = {
+    prune: () => {},
+    publishers: {
+      'site.com': {
+        duration: 10
+      }
+    },
+    options: {
+      numFrames: 30,
+      frameSize: 86400000
+    }
+  }
+
+  const synopsisTime = {
+    prune: () => {},
+    publishers: {
+      'site.com': {
+        duration: 31 * msecs.minute
+      }
+    },
+    options: {
+      numFrames: 30,
+      frameSize: 86400000
+    }
+  }
+  t.equal(client.state.reconcileStamp, undefined, 'Should be undefined at start')
+
+  const fiveDays = new Date().getTime() + (5 * msecs.day)
+  client.setTimeUntilReconcile(fiveDays, () => {})
+  t.equal(client.state.reconcileStamp, fiveDays, 'Should set time now+5days stamp')
+  client._fuzzing(synopsis, () => {})
+  t.equal(client.state.reconcileStamp, fiveDays, 'Should not be changed if stamp is in the near future (5days)')
+
+  const tomorrow = new Date().getTime() + (1 * msecs.day)
+  client.setTimeUntilReconcile(tomorrow, () => {})
+  t.equal(client.state.reconcileStamp, tomorrow, 'Should set time now+1day stamp')
+  client._fuzzing(synopsis, () => {})
+  console.log(client.state.reconcileStamp, (new Date().getTime() + (5 * msecs.day)))
+  assertWithinBounds(t, client.state.reconcileStamp, (new Date().getTime() + (5 * msecs.day)), 1000, 'Should be changed if stamp is tomorrow and browsing time is bellow 30min')
+
+  const past = new Date().getTime() - (5 * msecs.day)
+  const pastClient = new Ledger(null, options, {properties: {days: 30}, reconcileStamp: past})
+  pastClient._fuzzing(synopsis, () => {})
+  assertWithinBounds(t, pastClient.state.reconcileStamp, new Date().getTime() + (5 * msecs.day), 1000, 'Should be changed if stamp is in the past and browsing time is bellow 30min')
+
+  client.setTimeUntilReconcile(tomorrow, () => {})
+  t.equal(client.state.reconcileStamp, tomorrow, 'Should set time now+1day stamp')
+  client._fuzzing(synopsisTime, () => {})
+  t.equal(client.state.reconcileStamp, tomorrow, 'Should not change if stamp is in tomorrow and browsing time is above 30min')
 })
