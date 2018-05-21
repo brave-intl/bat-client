@@ -15,7 +15,7 @@
     "clean": "node ./tools/clean.js",
     "lint": "standard --verbose | snazzy",
     "test": "npm run test-security && npm run test-index",
-    "test-security": "nsp check",
+    "test-security": "npm audit",
     "test-index": "node test/indexTest.js",
     "test-integration": "node test/integrationTest.js"
   },
@@ -48,8 +48,7 @@
   },
   "devDependencies": {
     "babel-eslint": "^8.0.0",
-    "npm-check-updates": "^2.12.1",
-    "nsp": "^2.8.0",
+    "pre-push": "^0.1.1",
     "rimraf": "^2.6.2",
     "snazzy": "^7.1.1",
     "standard": "10.0.3",
@@ -61,5 +60,10 @@
       "config.js"
     ],
     "parser": "babel-eslint"
+  },
+  "pre-push": {
+    "run": [
+      "lint"
+    ]
   }
 }
