@@ -46,10 +46,42 @@ test('balance', async (t) => {
   })
 })
 
-test.skip('promotion', async (t) => {
+test('promotion', async (t) => {
   t.plan(7)
-  const client = new Ledger(null, options)
-  const client2 = new Ledger(null, options)
+
+  const client = {
+    sync: (callback) => {
+      callback()
+    },
+    getPromotion: (lang, forPaymentId, callback) => {
+      const resp = {
+        promotionId: '5787de72e-174d-4fb3-bdf6-2e70b2b0ac86'
+      }
+      callback(null, resp)
+    },
+    setPromotion: (promotionId, callback) => {
+      const resp = {
+        probi: '10000000000000000000'
+      }
+      callback(null, resp)
+    },
+    getWalletProperties: (callback) => {
+      const resp = {
+        probi: '10000000000000000000'
+      }
+      callback(null, resp)
+    },
+    getPaymentId: () => {}
+  }
+
+  const client2 = {
+    getPromotion: (lang, paymentId, callback) => {
+      const err = {
+        message: '404'
+      }
+      callback(err)
+    }
+  }
 
   client.sync(function () {
     client.getPromotion(null, null, function (err, resp) {
