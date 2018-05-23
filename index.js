@@ -20,6 +20,7 @@ const uuid = require('uuid')
 const batPublisher = require('bat-publisher')
 
 const SEED_LENGTH = 32
+const BATCH_SIZE = 10
 const HKDF_SALT = new Uint8Array([ 126, 244, 99, 158, 51, 68, 253, 80, 133, 183, 51, 180, 77, 62, 74, 252, 62, 106, 96, 125, 241, 110, 134, 87, 190, 208, 158, 84, 125, 69, 246, 207, 162, 247, 107, 172, 37, 34, 53, 246, 105, 20, 215, 5, 248, 154, 179, 191, 46, 17, 6, 72, 210, 91, 10, 169, 145, 248, 22, 147, 117, 24, 105, 12 ])
 const LEDGER_SERVERS = {
   'staging': {
@@ -41,7 +42,7 @@ const Client = function (personaId, options, state) {
   const later = now + (15 * msecs.minute)
 
   self.options = underscore.defaults(underscore.clone(options || {}),
-                                     { version: 'v1', debugP: false, loggingP: false, verboseP: false })
+      { version: 'v1', debugP: false, loggingP: false, verboseP: false })
 
   const env = self.options.environment || 'production'
   const version = self.options.version || 'v2'
@@ -76,7 +77,7 @@ const Client = function (personaId, options, state) {
 
     state.properties.wallet.keyinfo.seed = seed
   }
-  self.state = underscore.defaults(state || {}, { personaId: personaId, options: self.options, ballots: [], transactions: [] })
+  self.state = underscore.defaults(state || {}, { personaId: personaId, options: self.options, ballots: [], batch: {}, transactions: [] })
   self.logging = []
 
   if (self.options.rulesTestP) {
@@ -197,13 +198,21 @@ Client.prototype.sync = function (callback) {
     ballot = ballots[i]
     transaction = underscore.find(self.state.transactions, function (transaction) {
       return ((transaction.credential) &&
-              (ballot.viewingId === transaction.viewingId) &&
-              ((!ballot.prepareBallot) || (!ballot.delayStamp) || (ballot.delayStamp <= now)))
+          (ballot.viewingId === transaction.viewingId) &&
+          ((!ballot.delayStamp) || (ballot.delayStamp <= now)))
     })
     if (!transaction) continue
 
     if (!ballot.prepareBallot) return self._prepareBallot(ballot, transaction, callback)
-    return self._commitBallot(ballot, transaction, callback)
+    if (!ballot.proofBallot) return self._proofBallot(ballot, transaction, callback)
+  }
+
+  if (ballots && ballots.length > 0 && (!self.state.batch || Object.keys(self.state.batch).length === 0)) {
+    return self._prepareBatch(callback)
+  }
+
+  if (self.state.batch && Object.keys(self.state.batch).length > 0) {
+    return self._voteBatch(callback)
   }
 
   transaction = underscore.find(self.state.transactions, function (transaction) {
@@ -431,7 +440,7 @@ Client.prototype.reconcile = function (viewingId, callback) {
 
       delayTime = random.randomInt({ min: msecs.second, max: (self.options.debugP ? 1 : 10) * msecs.minute })
       self._log('reconcile',
-                { reason: 'awaiting a new surveyorId', delayTime: delayTime, surveyorId: surveyorInfo.surveyorId })
+          { reason: 'awaiting a new surveyorId', delayTime: delayTime, surveyorId: surveyorInfo.surveyorId })
       return callback(null, null, delayTime)
     }
 
@@ -911,7 +920,7 @@ Client.prototype._currentReconcile = function (callback) {
       ]),
         {
           address: self.state.properties.wallet.addresses && self.state.properties.wallet.addresses.BAT
-            ? self.state.properties.wallet.addresses.BAT : self.state.properties.wallet.address,
+                ? self.state.properties.wallet.addresses.BAT : self.state.properties.wallet.address,
           addresses: self.state.properties.wallet.addresses,
           amount: amount,
           currency: currency
@@ -1070,40 +1079,120 @@ Client.prototype._prepareBallot = function (ballot, transaction, callback) {
   })
 }
 
-Client.prototype._commitBallot = function (ballot, transaction, callback) {
+Client.prototype._proofBallot = function (ballot, transaction, callback) {
   const self = this
 
   const credential = new anonize.Credential(transaction.credential)
-  const prefix = self.options.prefix + '/surveyor/voting/'
   const surveyor = new anonize.Surveyor(ballot.prepareBallot)
-  let path
-
-  path = prefix + encodeURIComponent(surveyor.parameters.surveyorId)
 
   self.credentialSubmit(credential, surveyor, { publisher: ballot.publisher }, function (err, result) {
     if (err) return callback(err)
 
-    self._retryTrip(self, { path: path, method: 'PUT', useProxy: true, payload: result.payload }, function (err, response, body) {
+    ballot.proofBallot = result.payload
+
+    const delayTime = random.randomInt({ min: 10 * msecs.second, max: 1 * msecs.minute })
+    self._log('_proofBallot', { delayTime: delayTime })
+    callback(null, self.state, delayTime)
+  })
+}
+
+Client.prototype._prepareBatch = function (callback) {
+  let batch = {}
+  const self = this
+  const now = underscore.now()
+  const transactions = self.state.transactions
+
+  if (!Array.isArray(self.state.ballots)) {
+    return callback(new Error('Ballots are not an array'))
+  }
+
+  for (let i = self.state.ballots.length - 1; i >= 0; i--) {
+    const ballot = self.state.ballots[i]
+    let transaction = underscore.find(transactions, function (transaction) {
+      return transaction.credential &&
+          ballot.viewingId === transaction.viewingId &&
+          (
+            !ballot.delayStamp ||
+            ballot.delayStamp <= now
+          )
+    })
+
+    if (!transaction) continue
+
+    if (!ballot.prepareBallot || !ballot.proofBallot) {
+      return callback(new Error('Ballot is not ready'))
+    }
+
+    if (!transaction.ballots) {
+      transaction.ballots = {}
+    }
+
+    if (!transaction.ballots[ballot.publisher]) {
+      transaction.ballots[ballot.publisher] = 0
+    }
+
+    transaction.ballots[ballot.publisher]++
+
+    if (!batch[ballot.publisher]) batch[ballot.publisher] = []
+
+    batch[ballot.publisher].push({
+      surveyorId: ballot.prepareBallot.surveyorId,
+      proof: ballot.proofBallot.proof
+    })
+
+    self.state.ballots.splice(i, 1)
+  }
+
+  self.state.batch = batch
+
+  const delayTime = random.randomInt({ min: 10 * msecs.second, max: 1 * msecs.minute })
+  callback(null, self.state, delayTime)
+}
+
+Client.prototype._voteBatch = function (callback) {
+  const self = this
+  if (!self.state.batch) {
+    return callback(new Error('No batch data'))
+  }
+
+  const path = self.options.prefix + '/batch/surveyor/voting'
+
+  const keys = Object.keys(self.state.batch) || []
+  if (keys.length === 0) {
+    return callback(new Error('No batch data (keys are empty'))
+  }
+
+  const publisher = self.state.batch[keys[0]]
+  let payload
+
+  if (publisher.length > BATCH_SIZE) {
+    payload = publisher.splice(0, BATCH_SIZE)
+  } else {
+    payload = publisher
+  }
+
+  self._retryTrip(self, { path: path, method: 'POST', useProxy: true, payload: payload }, function (err, response, body) {
+    self._log('_voteBatch', { method: 'POST', path: path + '...', errP: !!err })
+    // TODO add error to the specific transaction
+    if (err || !body) return callback(err)
+
+    body.forEach((vote) => {
       let i
+      for (i = publisher.length - 1; i >= 0; i--) {
+        if (publisher[i].surveyorId !== vote.surveyorId) continue
 
-      self._log('_commitBallot', { method: 'PUT', path: prefix + '...', errP: !!err })
-      if (err) return callback(transaction.err = err)
-
-      if (!transaction.ballots) transaction.ballots = {}
-      if (!transaction.ballots[ballot.publisher]) transaction.ballots[ballot.publisher] = 0
-      transaction.ballots[ballot.publisher]++
-
-      for (i = self.state.ballots.length - 1; i >= 0; i--) {
-        if (self.state.ballots[i].surveyorId !== ballot.surveyorId) continue
-
-        self.state.ballots.splice(i, 1)
+        publisher.splice(i, 1)
         break
       }
-      if (i < 0) console.log('\n\nunable to find ballot surveyorId=' + ballot.surveyorId)
-
-      self._log('_commitBallot', { delayTime: msecs.minute })
-      callback(null, self.state, msecs.minute)
     })
+
+    if (self.state.batch[keys[0]].length === 0) {
+      delete self.state.batch[keys[0]]
+    }
+
+    const delayTime = random.randomInt({ min: 10 * msecs.second, max: 1 * msecs.minute })
+    self._log('_voteBatch', { delayTime: delayTime })
+    callback(null, self.state, delayTime)
   })
 }
 
@@ -1234,7 +1323,7 @@ Client.prototype._roundTrip = function (params, callback) {
 
   params = underscore.extend(underscore.pick(self.options.server, [ 'protocol', 'hostname', 'port' ]), params)
   params.headers = underscore.defaults(params.headers || {},
-                                       { 'content-type': 'application/json; charset=utf-8', 'accept-encoding': '' })
+      { 'content-type': 'application/json; charset=utf-8', 'accept-encoding': '' })
 
   request = client.request(underscore.omit(params, [ 'useProxy', 'payload' ]), function (response) {
     let body = ''
@@ -1250,7 +1339,7 @@ Client.prototype._roundTrip = function (params, callback) {
       if (self.options.verboseP) {
         console.log('[ response for ' + params.method + ' ' + server.protocol + '//' + server.hostname + params.path + ' ]')
         console.log('>>> HTTP/' + response.httpVersionMajor + '.' + response.httpVersionMinor + ' ' + response.statusCode +
-                   ' ' + (response.statusMessage || ''))
+            ' ' + (response.statusMessage || ''))
         underscore.keys(response.headers).forEach(function (header) {
           console.log('>>> ' + header + ': ' + response.headers[header])
         })
@@ -1352,7 +1441,7 @@ Client.prototype.credentialFinalize = function (credential, verification, callba
 
   if (this.helper) {
     return this.credentialRoundTrip('finalize', { credential: JSON.stringify(credential), verification: verification },
-                                    callback)
+        callback)
   }
 
   try { credential.finalize(verification) } catch (ex) { return callback(ex) }
@@ -1364,14 +1453,14 @@ Client.prototype.credentialSubmit = function (credential, surveyor, data, callba
 
   if (this.options.createWorker) {
     return this.credentialWorker('submit',
-                                 { credential: JSON.stringify(credential), surveyor: JSON.stringify(surveyor), data: data },
-                                 callback)
+        { credential: JSON.stringify(credential), surveyor: JSON.stringify(surveyor), data: data },
+        callback)
   }
 
   if (this.helper) {
     return this.credentialRoundTrip('submit',
-                                    { credential: JSON.stringify(credential), surveyor: JSON.stringify(surveyor), data: data },
-                                    callback)
+        { credential: JSON.stringify(credential), surveyor: JSON.stringify(surveyor), data: data },
+        callback)
   }
 
   try { payload = { proof: credential.submit(surveyor, data) } } catch (ex) { return callback(ex) }

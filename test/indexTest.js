@@ -217,3 +217,204 @@ test('_fuzzing', (t) => {
   client._fuzzing(synopsisTime, () => {})
   t.equal(client.state.reconcileStamp, tomorrow, 'Should not change if stamp is in tomorrow and browsing time is above 30min')
 })
+
+test('_prepareBatch', (t) => {
+  t.plan(11)
+  const client = new Ledger(null, options)
+  const callback = () => {}
+
+  client._prepareBatch(callback)
+  t.deepEqual(client.state.batch, {}, 'Should be empty for null case')
+
+  client.state = {
+    batch: {},
+    ballots: null
+  }
+  client._prepareBatch(callback)
+  t.deepEqual(client.state.batch, {}, 'Should be empty when we do not have ballots')
+
+  client.state = {
+    batch: {},
+    ballots: null
+  }
+  client._prepareBatch(callback)
+  t.deepEqual(client.state.batch, {}, 'Should be empty for null case')
+
+  client.state = {
+    batch: {},
+    ballots: [{
+      publisher: 'clifton.io',
+      viewingId: '123a',
+      prepareBallot: {
+        surveyorId: '12323'
+      },
+      proofBallot: {
+        proof: 'dfdsfsd'
+      }
+    }],
+    transactions: []
+  }
+  client._prepareBatch(callback)
+  t.deepEqual(client.state.batch, {}, 'Should be empty when there is no transaction')
+
+  client.state = {
+    batch: {},
+    ballots: [{
+      publisher: 'clifton.io',
+      viewingId: '123a'
+    }],
+    transactions: [{
+      viewingId: '123a',
+      credential: '12'
+    }]
+  }
+  client._prepareBatch(callback)
+  t.deepEqual(client.state.batch, {}, 'Should be empty when ballot is missing proof and prepare')
+
+  client.state = {
+    batch: {},
+    ballots: [{
+      publisher: 'clifton.io',
+      viewingId: '123a',
+      prepareBallot: {
+        surveyorId: '12323'
+      },
+      proofBallot: {
+        proof: 'dfdsfsd'
+      }
+    }],
+    transactions: [{
+      viewingId: '123a',
+      credential: '12'
+    }]
+  }
+  client._prepareBatch(callback)
+  t.deepEqual(client.state.batch, {
+    'clifton.io': [{
+      surveyorId: '12323',
+      proof: 'dfdsfsd'
+    }]
+  }, 'Should have one batch')
+  t.deepEqual(client.state.ballots, [], 'Should not have any ballots when we move it into the batch')
+
+  client.state = {
+    batch: {},
+    ballots: [{
+      publisher: 'clifton.io',
+      viewingId: '123a',
+      prepareBallot: {
+        surveyorId: '12323'
+      },
+      proofBallot: {
+        proof: 'dfdsfsd'
+      },
+      delayStamp: new Date().getTime() + 10000000
+    }],
+    transactions: [{
+      viewingId: '123a',
+      credential: '12'
+    }]
+  }
+  client._prepareBatch(callback)
+  t.deepEqual(client.state.batch, {}, 'Should not have any batches when delay is provided')
+  t.equal(client.state.ballots.length, 1, 'Should not delete ballots when delay is provided')
+
+  client.state = {
+    batch: {},
+    ballots: [
+      {
+        publisher: 'clifton.io',
+        viewingId: '123a',
+        prepareBallot: {
+          surveyorId: '12323'
+        },
+        proofBallot: {
+          proof: '1'
+        },
+        delayStamp: new Date().getTime() + 10000000
+      },
+      {
+        publisher: 'clifton.io',
+        viewingId: '123a',
+        prepareBallot: {
+          surveyorId: '12323'
+        },
+        proofBallot: {
+          proof: '2'
+        }
+      },
+      {
+        publisher: 'clifton.io',
+        viewingId: '123a',
+        prepareBallot: {
+          surveyorId: '12323'
+        },
+        proofBallot: {
+          proof: '3'
+        }
+      },
+      {
+        publisher: 'clifton.io',
+        viewingId: '123a',
+        prepareBallot: {
+          surveyorId: '12323'
+        },
+        proofBallot: {
+          proof: '4'
+        }
+      },
+      {
+        publisher: 'brianbondy.com',
+        viewingId: '123a',
+        prepareBallot: {
+          surveyorId: '12323'
+        },
+        proofBallot: {
+          proof: '1'
+        }
+      },
+      {
+        publisher: 'brianbondy.com',
+        viewingId: '123a',
+        prepareBallot: {
+          surveyorId: '12323'
+        },
+        proofBallot: {
+          proof: '2'
+        }
+      }],
+    transactions: [{
+      viewingId: '123a',
+      credential: '12'
+    }]
+  }
+  const expectedResult = {
+    'brianbondy.com': [
+      {
+        surveyorId: '12323',
+        proof: '2'
+      },
+      {
+        surveyorId: '12323',
+        proof: '1'
+      }
+    ],
+    'clifton.io': [
+      {
+        surveyorId: '12323',
+        proof: '4'
+      },
+      {
+        surveyorId: '12323',
+        proof: '3'
+      },
+      {
+        surveyorId: '12323',
+        proof: '2'
+      }
+    ]
+  }
+  client._prepareBatch(callback)
+  t.deepEqual(client.state.batch, expectedResult, 'Should have multiple publishers in the batch')
+  t.equal(client.state.ballots.length, 1, 'Should not delete ballots when delay is provided')
+})
