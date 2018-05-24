@@ -761,7 +761,7 @@ Client.prototype.getPromotion = function (lang, forPaymentId, callback) {
   })
 }
 
-Client.prototype.setPromotion = function (promotionId, callback) {
+Client.prototype.setPromotion = function (promotionId, captchaResponse, callback) {
   const self = this
 
   let path
@@ -769,8 +769,20 @@ Client.prototype.setPromotion = function (promotionId, callback) {
   if (self.options.version === 'v1') return
 
   path = '/v1/grants/' + self.state.properties.wallet.paymentId
-  self._retryTrip(self, { path: path, method: 'PUT', payload: { promotionId: promotionId } }, function (err, response, body) {
-    self._log('publisherInfo', { method: 'PUT', path: path, errP: !!err })
+  self._retryTrip(self, { path: path, method: 'PUT', payload: { promotionId, captchaResponse } }, function (err, response, body) {
+    self._log('setPromotion', { method: 'PUT', path: path, errP: !!err })
+    if (err) return callback(err, null, response)
+
+    callback(null, body)
+  })
+}
+
+Client.prototype.getPromotionCaptcha = function (promotionId, callback) {
+  const self = this
+
+  const path = '/v1/captchas/' + self.state.properties.wallet.paymentId
+  self._retryTrip(self, { path: path, method: 'GET', binaryP: true }, function (err, response, body) {
+    self._log('getPromotionCaptcha', { method: 'GET', path: path, errP: !!err })
     if (err) return callback(err, null, response)
 
     callback(null, body)
