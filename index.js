@@ -196,6 +196,10 @@ Client.prototype.sync = function (callback) {
   ballots = underscore.shuffle(self.state.ballots)
   for (i = ballots.length - 1; i >= 0; i--) {
     ballot = ballots[i]
+    if (ballot.prepareBallot && ballot.proofBallot) {
+      continue
+    }
+
     transaction = underscore.find(self.state.transactions, function (transaction) {
       return ((transaction.credential) &&
           (ballot.viewingId === transaction.viewingId) &&
@@ -234,6 +238,7 @@ Client.prototype.sync = function (callback) {
       updateP = true
     }
   }
+
   if (updateP) {
     self._log('sync', { delayTime: msecs.minute })
     return callback(null, self.state, msecs.minute)
@@ -1087,7 +1092,8 @@ Client.prototype._prepareBallot = function (ballot, transaction, callback) {
 
     if (delayTime > msecs.minute) delayTime = msecs.minute
     self._log('_prepareBallot', { delayTime: delayTime })
-    callback(null, self.state, delayTime)
+
+    self._proofBallot(ballot, transaction, callback)
   })
 }
 
