@@ -219,7 +219,7 @@ test('_fuzzing', (t) => {
 })
 
 test('_prepareBatch', (t) => {
-  t.plan(11)
+  t.plan(8)
   const client = new Ledger(null, options)
   const callback = () => {}
 
@@ -299,40 +299,7 @@ test('_prepareBatch', (t) => {
 
   client.state = {
     batch: {},
-    ballots: [{
-      publisher: 'clifton.io',
-      viewingId: '123a',
-      prepareBallot: {
-        surveyorId: '12323'
-      },
-      proofBallot: {
-        proof: 'dfdsfsd'
-      },
-      delayStamp: new Date().getTime() + 10000000
-    }],
-    transactions: [{
-      viewingId: '123a',
-      credential: '12'
-    }]
-  }
-  client._prepareBatch(callback)
-  t.deepEqual(client.state.batch, {}, 'Should not have any batches when delay is provided')
-  t.equal(client.state.ballots.length, 1, 'Should not delete ballots when delay is provided')
-
-  client.state = {
-    batch: {},
     ballots: [
-      {
-        publisher: 'clifton.io',
-        viewingId: '123a',
-        prepareBallot: {
-          surveyorId: '12323'
-        },
-        proofBallot: {
-          proof: '1'
-        },
-        delayStamp: new Date().getTime() + 10000000
-      },
       {
         publisher: 'clifton.io',
         viewingId: '123a',
@@ -416,5 +383,4 @@ test('_prepareBatch', (t) => {
   }
   client._prepareBatch(callback)
   t.deepEqual(client.state.batch, expectedResult, 'Should have multiple publishers in the batch')
-  t.equal(client.state.ballots.length, 1, 'Should not delete ballots when delay is provided')
 })

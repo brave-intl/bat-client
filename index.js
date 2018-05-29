@@ -201,9 +201,7 @@ Client.prototype.sync = function (callback) {
     }
 
     transaction = underscore.find(self.state.transactions, function (transaction) {
-      return ((transaction.credential) &&
-          (ballot.viewingId === transaction.viewingId) &&
-          ((!ballot.delayStamp) || (ballot.delayStamp <= now)))
+      return transaction.credential && ballot.viewingId === transaction.viewingId
     })
     if (!transaction) continue
 
@@ -238,7 +236,6 @@ Client.prototype.sync = function (callback) {
       updateP = true
     }
   }
-
   if (updateP) {
     self._log('sync', { delayTime: msecs.minute })
     return callback(null, self.state, msecs.minute)
@@ -1078,20 +1075,10 @@ Client.prototype._prepareBallot = function (ballot, transaction, callback) {
 
   path = prefix + encodeURIComponent(ballot.surveyorId) + '/' + credential.parameters.userId
   self._retryTrip(self, { path: path, method: 'GET', useProxy: true }, function (err, response, body) {
-    let delayTime, now
-
     self._log('_prepareBallot', { method: 'GET', path: prefix + '...', errP: !!err })
     if (err) return callback(transaction.err = err)
 
     ballot.prepareBallot = underscore.defaults(body, { server: self.options.server })
-
-    now = underscore.now()
-    delayTime = random.randomInt({ min: 10 * msecs.second, max: (self.options.debugP ? 1 : 5) * msecs.minute })
-    ballot.delayStamp = now + delayTime
-    if (self.options.verboseP) ballot.delayDate = new Date(ballot.delayStamp)
-
-    if (delayTime > msecs.minute) delayTime = msecs.minute
-    self._log('_prepareBallot', { delayTime: delayTime })
 
     self._proofBallot(ballot, transaction, callback)
   })
@@ -1117,7 +1104,6 @@ Client.prototype._proofBallot = function (ballot, transaction, callback) {
 Client.prototype._prepareBatch = function (callback) {
   let batch = {}
   const self = this
-  const now = underscore.now()
   const transactions = self.state.transactions
 
   if (!Array.isArray(self.state.ballots)) {
@@ -1127,12 +1113,7 @@ Client.prototype._prepareBatch = function (callback) {
   for (let i = self.state.ballots.length - 1; i >= 0; i--) {
     const ballot = self.state.ballots[i]
     let transaction = underscore.find(transactions, function (transaction) {
-      return transaction.credential &&
-          ballot.viewingId === transaction.viewingId &&
-          (
-            !ballot.delayStamp ||
-            ballot.delayStamp <= now
-          )
+      return transaction.credential && ballot.viewingId === transaction.viewingId
     })
 
     if (!transaction) continue
