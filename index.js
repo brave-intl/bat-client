@@ -1413,21 +1413,10 @@ Client.prototype.credentialWorker = function (operation, payload, callback) {
   worker.start()
 }
 
-Client.prototype.credentialRoundTrip = function (operation, payload, callback) {
-  const msgno = this.seqno++
-  const request = { msgno: msgno, operation: operation, payload: payload }
-
-  this.callbacks[msgno] = { verboseP: this.options.verboseP, callback: callback }
-  if (this.options.verboseP) console.log('! <<< ' + JSON.stringify(request, null, 2))
-  this.helper.send(request)
-}
-
 Client.prototype.credentialRequest = function (credential, callback) {
   let proof
 
   if (this.options.createWorker) return this.credentialWorker('request', { credential: JSON.stringify(credential) }, callback)
-
-  if (this.helper) this.credentialRoundTrip('request', { credential: JSON.stringify(credential) }, callback)
 
   try { proof = credential.request() } catch (ex) { return callback(ex) }
   callback(null, { proof: proof })
@@ -1436,11 +1425,6 @@ Client.prototype.credentialRequest = function (credential, callback) {
 Client.prototype.credentialFinalize = function (credential, verification, callback) {
   if (this.options.createWorker) {
     return this.credentialWorker('finalize', { credential: JSON.stringify(credential), verification: verification }, callback)
-  }
-
-  if (this.helper) {
-    return this.credentialRoundTrip('finalize', { credential: JSON.stringify(credential), verification: verification },
-        callback)
   }
 
   try { credential.finalize(verification) } catch (ex) { return callback(ex) }
@@ -1452,12 +1436,6 @@ Client.prototype.credentialSubmit = function (credential, surveyor, data, callba
 
   if (this.options.createWorker) {
     return this.credentialWorker('submit',
-        { credential: JSON.stringify(credential), surveyor: JSON.stringify(surveyor), data: data },
-        callback)
-  }
-
-  if (this.helper) {
-    return this.credentialRoundTrip('submit',
         { credential: JSON.stringify(credential), surveyor: JSON.stringify(surveyor), data: data },
         callback)
   }
