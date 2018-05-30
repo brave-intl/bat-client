@@ -204,7 +204,6 @@ test('_fuzzing', (t) => {
   client.setTimeUntilReconcile(tomorrow, () => {})
   t.equal(client.state.reconcileStamp, tomorrow, 'Should set time now+1day stamp')
   client._fuzzing(synopsis, () => {})
-  console.log(client.state.reconcileStamp, (new Date().getTime() + (5 * msecs.day)))
   assertWithinBounds(t, client.state.reconcileStamp, (new Date().getTime() + (5 * msecs.day)), 1000, 'Should be changed if stamp is tomorrow and browsing time is bellow 30min')
 
   const past = new Date().getTime() - (5 * msecs.day)
@@ -218,43 +217,42 @@ test('_fuzzing', (t) => {
   t.equal(client.state.reconcileStamp, tomorrow, 'Should not change if stamp is in tomorrow and browsing time is above 30min')
 })
 
-test('_prepareBatch', (t) => {
+test('_prepareVoteBatch', (t) => {
   t.plan(8)
   const client = new Ledger(null, options)
   const callback = () => {}
 
-  client._prepareBatch(callback)
+  client._prepareVoteBatch(callback)
   t.deepEqual(client.state.batch, {}, 'Should be empty for null case')
 
   client.state = {
     batch: {},
     ballots: null
   }
-  client._prepareBatch(callback)
+  client._prepareVoteBatch(callback)
   t.deepEqual(client.state.batch, {}, 'Should be empty when we do not have ballots')
 
   client.state = {
     batch: {},
     ballots: null
   }
-  client._prepareBatch(callback)
+  client._prepareVoteBatch(callback)
   t.deepEqual(client.state.batch, {}, 'Should be empty for null case')
 
   client.state = {
     batch: {},
     ballots: [{
+      surveyorId: '12323',
       publisher: 'clifton.io',
       viewingId: '123a',
       prepareBallot: {
         surveyorId: '12323'
       },
-      proofBallot: {
-        proof: 'dfdsfsd'
-      }
+      proofBallot: 'dfdsfsd'
     }],
     transactions: []
   }
-  client._prepareBatch(callback)
+  client._prepareVoteBatch(callback)
   t.deepEqual(client.state.batch, {}, 'Should be empty when there is no transaction')
 
   client.state = {
@@ -268,27 +266,26 @@ test('_prepareBatch', (t) => {
       credential: '12'
     }]
   }
-  client._prepareBatch(callback)
+  client._prepareVoteBatch(callback)
   t.deepEqual(client.state.batch, {}, 'Should be empty when ballot is missing proof and prepare')
 
   client.state = {
     batch: {},
     ballots: [{
+      surveyorId: '12323',
       publisher: 'clifton.io',
       viewingId: '123a',
       prepareBallot: {
         surveyorId: '12323'
       },
-      proofBallot: {
-        proof: 'dfdsfsd'
-      }
+      proofBallot: 'dfdsfsd'
     }],
     transactions: [{
       viewingId: '123a',
       credential: '12'
     }]
   }
-  client._prepareBatch(callback)
+  client._prepareVoteBatch(callback)
   t.deepEqual(client.state.batch, {
     'clifton.io': [{
       surveyorId: '12323',
@@ -301,54 +298,49 @@ test('_prepareBatch', (t) => {
     batch: {},
     ballots: [
       {
+        surveyorId: '1',
         publisher: 'clifton.io',
         viewingId: '123a',
         prepareBallot: {
-          surveyorId: '12323'
+          surveyorId: '1'
         },
-        proofBallot: {
-          proof: '2'
-        }
+        proofBallot: '2'
       },
       {
+        surveyorId: '2',
         publisher: 'clifton.io',
         viewingId: '123a',
         prepareBallot: {
-          surveyorId: '12323'
+          surveyorId: '2'
         },
-        proofBallot: {
-          proof: '3'
-        }
+        proofBallot: '3'
       },
       {
+        surveyorId: '3',
         publisher: 'clifton.io',
         viewingId: '123a',
         prepareBallot: {
-          surveyorId: '12323'
+          surveyorId: '3'
         },
-        proofBallot: {
-          proof: '4'
-        }
+        proofBallot: '4'
       },
       {
+        surveyorId: '4',
         publisher: 'brianbondy.com',
         viewingId: '123a',
         prepareBallot: {
-          surveyorId: '12323'
+          surveyorId: '4'
         },
-        proofBallot: {
-          proof: '1'
-        }
+        proofBallot: '1'
       },
       {
+        surveyorId: '5',
         publisher: 'brianbondy.com',
         viewingId: '123a',
         prepareBallot: {
-          surveyorId: '12323'
+          surveyorId: '5'
         },
-        proofBallot: {
-          proof: '2'
-        }
+        proofBallot: '2'
       }],
     transactions: [{
       viewingId: '123a',
@@ -358,29 +350,29 @@ test('_prepareBatch', (t) => {
   const expectedResult = {
     'brianbondy.com': [
       {
-        surveyorId: '12323',
+        surveyorId: '5',
         proof: '2'
       },
       {
-        surveyorId: '12323',
+        surveyorId: '4',
         proof: '1'
       }
     ],
     'clifton.io': [
       {
-        surveyorId: '12323',
+        surveyorId: '3',
         proof: '4'
       },
       {
-        surveyorId: '12323',
+        surveyorId: '2',
         proof: '3'
       },
       {
-        surveyorId: '12323',
+        surveyorId: '1',
         proof: '2'
       }
     ]
   }
-  client._prepareBatch(callback)
+  client._prepareVoteBatch(callback)
   t.deepEqual(client.state.batch, expectedResult, 'Should have multiple publishers in the batch')
 })

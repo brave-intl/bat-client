@@ -193,24 +193,48 @@ Client.prototype.sync = function (callback) {
 
   if (self.options.verboseP) console.log('+++ busyP=' + self.busyP())
 
-  ballots = underscore.shuffle(self.state.ballots)
-  for (i = ballots.length - 1; i >= 0; i--) {
-    ballot = ballots[i]
-    if (ballot.prepareBallot && ballot.proofBallot) {
-      continue
+  ballots = self.state.ballots
+  if (ballots && ballots.length > 0) {
+    ballots = underscore.shuffle(ballots)
+
+    const batchPrepare = []
+    const batchProof = []
+    const transactions = self.state.transactions
+    ballots.forEach(ballot => {
+      if (ballot.prepareBallot && ballot.proofBallot) return
+
+      const transaction = transactions.find(transaction => {
+        return transaction.credential && ballot.viewingId === transaction.viewingId
+      })
+
+      if (!transaction) return
+
+      if (!ballot.prepareBallot) {
+        batchPrepare.push({
+          transaction,
+          ballot
+        })
+
+        return
+      }
+
+      batchProof.push({
+        transaction,
+        ballot
+      })
+    })
+
+    if (batchPrepare.length > 0) {
+      return self._prepareBatch(batchPrepare, callback)
     }
 
-    transaction = underscore.find(self.state.transactions, function (transaction) {
-      return transaction.credential && ballot.viewingId === transaction.viewingId
-    })
-    if (!transaction) continue
-
-    if (!ballot.prepareBallot) return self._prepareBallot(ballot, transaction, callback)
-    if (!ballot.proofBallot) return self._proofBallot(ballot, transaction, callback)
+    if (batchProof.length > 0) {
+      return self._proofBatch(batchProof, callback)
+    }
   }
 
   if (ballots && ballots.length > 0 && (!self.state.batch || Object.keys(self.state.batch).length === 0)) {
-    return self._prepareBatch(callback)
+    return self._prepareVoteBatch(callback)
   }
 
   if (self.state.batch && Object.keys(self.state.batch).length > 0) {
@@ -1066,34 +1090,87 @@ Client.prototype._registerViewing = function (viewingId, callback) {
   })
 }
 
-Client.prototype._prepareBallot = function (ballot, transaction, callback) {
+Client.prototype._prepareBatch = function (batch, callback) {
   const self = this
+  const payload = []
+  const ballots = self.state.ballots
+  const transactions = self.state.transactions || []
 
-  const credential = new anonize.Credential(transaction.credential)
-  const prefix = self.options.prefix + '/surveyor/voting/'
-  let path
+  if (!Array.isArray(batch)) {
+    return callback(new Error('_prepareBatch: Batch is not an array'))
+  }
 
-  path = prefix + encodeURIComponent(ballot.surveyorId) + '/' + credential.parameters.userId
-  self._retryTrip(self, { path: path, method: 'GET', useProxy: true }, function (err, response, body) {
-    self._log('_prepareBallot', { method: 'GET', path: prefix + '...', errP: !!err })
-    if (err) return callback(transaction.err = err)
+  batch.forEach(item => {
+    const credential = new anonize.Credential(item.transaction.credential)
+    payload.push({
+      surveyorId: item.ballot.surveyorId,
+      uId: credential.parameters.userId
+    })
+  })
 
-    ballot.prepareBallot = underscore.defaults(body, { server: self.options.server })
+  if (payload.length === 0) {
+    return callback(new Error('_prepareBatch: payload is empty'))
+  }
 
-    self._proofBallot(ballot, transaction, callback)
+  let path = self.options.prefix + '/batch/surveyor'
+
+  self._retryTrip(self, { path, method: 'POST', useProxy: true, payload }, function (err, response, body) {
+    self._log('_prepareBatch', { method: 'POST', path, errP: !!err })
+    if (err) return callback(err)
+
+    if (!Array.isArray(body)) return callback(new Error('_prepareBatch: Body is not an array'))
+
+    const newBallots = []
+
+    body.forEach(serveyor => {
+      const ballot = ballots.find(ballot => ballot.surveyorId === serveyor.surveyorId)
+      const transaction = transactions.find(transaction => {
+        return transaction.credential && ballot.viewingId === transaction.viewingId
+      })
+
+      ballot.prepareBallot = serveyor
+      newBallots.push({
+        ballot,
+        transaction
+      })
+    })
+
+    self._proofBatch(newBallots, callback)
   })
 }
 
-Client.prototype._proofBallot = function (ballot, transaction, callback) {
+Client.prototype._proofBatch = function (batch, callback) {
   const self = this
+  const payload = []
+  const ballots = self.state.ballots
 
-  const credential = new anonize.Credential(transaction.credential)
-  const surveyor = new anonize.Surveyor(ballot.prepareBallot)
+  if (!Array.isArray(batch)) {
+    return callback(new Error('_proofBatch: Batch is not an array'))
+  }
 
-  self.credentialSubmit(credential, surveyor, { publisher: ballot.publisher }, function (err, result) {
+  batch.forEach(item => {
+    const credential = new anonize.Credential(item.transaction.credential)
+    const surveyor = new anonize.Surveyor(item.ballot.prepareBallot)
+    payload.push({
+      credential: JSON.stringify(credential),
+      surveyor: JSON.stringify(surveyor),
+      publisher: item.ballot.publisher
+    })
+  })
+
+  if (payload.length === 0) {
+    return callback(new Error('_proofBatch: payload is empty'))
+  }
+
+  self.credentialSubmit(payload, function (err, result) {
     if (err) return callback(err)
 
-    ballot.proofBallot = result.payload
+    if (!Array.isArray(result.payload)) return callback(new Error('_proofBatch: Payload is not an array'))
+
+    result.payload.forEach(item => {
+      const ballot = ballots.find(ballot => ballot.surveyorId === item.surveyorId)
+      ballot.proofBallot = item.proof
+    })
 
     const delayTime = random.randomInt({ min: 10 * msecs.second, max: 1 * msecs.minute })
     self._log('_proofBallot', { delayTime: delayTime })
@@ -1101,13 +1178,13 @@ Client.prototype._proofBallot = function (ballot, transaction, callback) {
   })
 }
 
-Client.prototype._prepareBatch = function (callback) {
+Client.prototype._prepareVoteBatch = function (callback) {
   let batch = {}
   const self = this
   const transactions = self.state.transactions
 
   if (!Array.isArray(self.state.ballots)) {
-    return callback(new Error('Ballots are not an array'))
+    return callback(new Error('_prepareVoteBatch: Ballots are not an array'))
   }
 
   for (let i = self.state.ballots.length - 1; i >= 0; i--) {
@@ -1119,7 +1196,7 @@ Client.prototype._prepareBatch = function (callback) {
     if (!transaction) continue
 
     if (!ballot.prepareBallot || !ballot.proofBallot) {
-      return callback(new Error('Ballot is not ready'))
+      return callback(new Error('_prepareVoteBatch: Ballot is not ready'))
     }
 
     if (!transaction.ballots) {
@@ -1135,8 +1212,8 @@ Client.prototype._prepareBatch = function (callback) {
     if (!batch[ballot.publisher]) batch[ballot.publisher] = []
 
     batch[ballot.publisher].push({
-      surveyorId: ballot.prepareBallot.surveyorId,
-      proof: ballot.proofBallot.proof
+      surveyorId: ballot.surveyorId,
+      proof: ballot.proofBallot
     })
 
     self.state.ballots.splice(i, 1)
@@ -1431,17 +1508,26 @@ Client.prototype.credentialFinalize = function (credential, verification, callba
   callback(null, { credential: JSON.stringify(credential) })
 }
 
-Client.prototype.credentialSubmit = function (credential, surveyor, data, callback) {
-  let payload
-
+Client.prototype.credentialSubmit = function (ballots, callback) {
   if (this.options.createWorker) {
-    return this.credentialWorker('submit',
-        { credential: JSON.stringify(credential), surveyor: JSON.stringify(surveyor), data: data },
-        callback)
+    return this.credentialWorker('submit', { ballots, multiple: true }, callback)
   }
 
-  try { payload = { proof: credential.submit(surveyor, data) } } catch (ex) { return callback(ex) }
-  return callback(null, { payload: payload })
+  try {
+    let payload = []
+    ballots.forEach(ballot => {
+      const credential = new anonize.Credential(ballot.credential)
+      const surveyor = new anonize.Surveyor(ballot.surveyor)
+
+      payload.push({
+        surveyorId: surveyor.parameters.surveyorId,
+        proof: credential.submit(surveyor, { publisher: ballot.publisher })
+      })
+    })
+    return callback(null, { payload })
+  } catch (ex) {
+    return callback(ex)
+  }
 }
 
 Client.prototype._fuzzing = function (synopsis, callback) {
