@@ -1536,7 +1536,7 @@ Client.prototype._fuzzing = function (synopsis, callback) {
       (this.options && this.options.noFuzzing) ||
       (this.boolion(process.env.LEDGER_NO_FUZZING))) return
 
-  synopsis.prune()
+  const pruned = synopsis.prune()
   underscore.keys(synopsis.publishers).forEach((publisher) => {
     duration += synopsis.publishers[publisher].duration
   })
@@ -1546,14 +1546,21 @@ Client.prototype._fuzzing = function (synopsis, callback) {
   memo = { duration: duration, ratio1: ratio, numFrames: synopsis.options.numFrames, frameSize: synopsis.options.frameSize }
   window = synopsis.options.numFrames * synopsis.options.frameSize
   if (window > 0) ratio *= (30 * msecs.day) / window
-  if (ratio >= 1.0) return
+  if (ratio >= 1.0) {
+    if (pruned && callback) {
+      callback(null, pruned)
+    }
+    return
+  }
 
   memo.window = window
   memo.ratio2 = ratio
 
-  advance = Math.round((this.state.properties.days * msecs.day) * (1.0 - ratio))
+  const totalDays = this.state.properties.days * msecs.day
+
+  advance = totalDays - Math.round(totalDays * (1.0 - ratio))
   memo.advance1 = advance
-  if (advance > (2 * msecs.day)) advance = 2 * msecs.day
+  if (advance > (2 * msecs.day) || advance <= 0) advance = 2 * msecs.day
   memo.advance2 = advance
   if (advance) {
     this.state.reconcileStamp = underscore.now() + 3 * msecs.day + advance
@@ -1562,7 +1569,7 @@ Client.prototype._fuzzing = function (synopsis, callback) {
   memo.reconcileDate = new Date(memo.reconcileStamp)
 
   if (callback) {
-    callback(advance)
+    callback(advance, pruned)
   }
 
   this.memo('_fuzzing', memo)

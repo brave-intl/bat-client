@@ -204,12 +204,12 @@ test('_fuzzing', (t) => {
   client.setTimeUntilReconcile(tomorrow, () => {})
   t.equal(client.state.reconcileStamp, tomorrow, 'Should set time now+1day stamp')
   client._fuzzing(synopsis, () => {})
-  assertWithinBounds(t, client.state.reconcileStamp, (new Date().getTime() + (5 * msecs.day)), 1000, 'Should be changed if stamp is tomorrow and browsing time is bellow 30min')
+  assertWithinBounds(t, client.state.reconcileStamp, (new Date().getTime() + (3 * msecs.day)), ((2 * msecs.day) + 1000), 'Should be changed if stamp is tomorrow and browsing time is bellow 30min')
 
   const past = new Date().getTime() - (5 * msecs.day)
   const pastClient = new Ledger(null, options, {properties: {days: 30}, reconcileStamp: past})
   pastClient._fuzzing(synopsis, () => {})
-  assertWithinBounds(t, pastClient.state.reconcileStamp, new Date().getTime() + (5 * msecs.day), 1000, 'Should be changed if stamp is in the past and browsing time is bellow 30min')
+  assertWithinBounds(t, pastClient.state.reconcileStamp, new Date().getTime() + (3 * msecs.day), ((2 * msecs.day) + 1000), 'Should be changed if stamp is in the past and browsing time is bellow 30min')
 
   client.setTimeUntilReconcile(tomorrow, () => {})
   t.equal(client.state.reconcileStamp, tomorrow, 'Should set time now+1day stamp')
