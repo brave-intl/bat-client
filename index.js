@@ -17,8 +17,6 @@ const stringify = require('json-stable-stringify')
 const underscore = require('underscore')
 const uuid = require('uuid')
 
-const batPublisher = require('bat-publisher')
-
 const SEED_LENGTH = 32
 const BATCH_SIZE = 10
 const HKDF_SALT = new Uint8Array([ 126, 244, 99, 158, 51, 68, 253, 80, 133, 183, 51, 180, 77, 62, 74, 252, 62, 106, 96, 125, 241, 110, 134, 87, 190, 208, 158, 84, 125, 69, 246, 207, 162, 247, 107, 172, 37, 34, 53, 246, 105, 20, 215, 5, 248, 154, 179, 191, 46, 17, 6, 72, 210, 91, 10, 169, 145, 248, 22, 147, 117, 24, 105, 12 ])
@@ -175,15 +173,6 @@ Client.prototype.sync = function (callback) {
       underscore.extend(self.state, bootstrap)
       return callback(null, self.state, msecs.minute)
     } catch (ex) {}
-  }
-
-  if (self.state.updatesStamp < now) {
-    return self._updateRules(function (err) {
-      if (err) self._log('_updateRules', { message: err.toString() })
-
-      self._log('sync', { delayTime: msecs.minute })
-      callback(null, self.state, msecs.minute)
-    })
   }
 
   if (!self.credentials) self.credentials = {}
@@ -998,13 +987,6 @@ Client.prototype._currentReconcile = function (callback) {
 
         self.state.reconcileStamp = underscore.now() + (self.state.properties.days * msecs.day)
         if (self.options.verboseP) self.state.reconcileDate = new Date(self.state.reconcileStamp)
-
-        self._updateRules(function (err) {
-          if (err) self._log('_updateRules', { message: err.toString() })
-
-          self._log('_currentReconcile', { delayTime: msecs.minute })
-          callback(null, self.state, msecs.minute)
-        })
       })
     }
 
@@ -1283,79 +1265,6 @@ Client.prototype._log = function (who, args) {
 
   if (debugP) console.log(JSON.stringify({ who: who, what: args || {}, when: underscore.now() }, null, 2))
   if (loggingP) this.logging.push({ who: who, what: args || {}, when: underscore.now() })
-}
-
-Client.prototype._updateRules = function (callback) {
-  const self = this
-
-  let path
-
-  self.state.updatesStamp = underscore.now() + msecs.hour
-  if (self.options.verboseP) self.state.updatesDate = new Date(self.state.updatesStamp)
-
-  path = '/v1/publisher/ruleset?consequential=true'
-  self._retryTrip(self, { path: path, method: 'GET' }, function (err, response, ruleset) {
-    let validity
-
-    self._log('_updateRules', { method: 'GET', path: '/v1/publisher/ruleset', errP: !!err })
-    if (err) return callback(err)
-
-    validity = Joi.validate(ruleset, batPublisher.schema)
-    if (validity.error) {
-      self._log('_updateRules', { error: validity.error })
-      return callback(new Error(validity.error))
-    }
-
-    if (!underscore.isEqual(self.state.ruleset || [], ruleset)) {
-      self.state.ruleset = ruleset
-
-      batPublisher.rules = ruleset
-    }
-
-    self._updateRulesV2(callback)
-  })
-}
-
-Client.prototype._updateRulesV2 = function (callback) {
-  const self = this
-
-  let path
-
-  self.state.updatesStamp = underscore.now() + msecs.hour
-  if (self.options.verboseP) self.state.updatesDate = new Date(self.state.updatesStamp)
-
-  path = '/v2/publisher/ruleset?limit=512&excludedOnly=false'
-  if (self.state.rulesV2Stamp) path += '&timestamp=' + self.state.rulesV2Stamp
-  self._retryTrip(self, { path: path, method: 'GET' }, function (err, response, ruleset) {
-    let c, i, rule, ts
-
-    self._log('_updateRules', { method: 'GET', path: '/v2/publisher/ruleset', errP: !!err })
-    if (err) return callback(err)
-
-    if (ruleset.length === 0) return callback()
-
-    if (!self.state.rulesetV2) self.state.rulesetV2 = []
-    self.state.rulesetV2 = self.state.rulesetV2.concat(ruleset)
-    rule = underscore.last(ruleset)
-
-    if (ruleset.length < 512) {
-      ts = rule.timestamp.split('')
-      for (i = ts.length - 1; i >= 0; i--) {
-        c = ts[i]
-        if (c < '9') {
-          ts[i] = String.fromCharCode(ts[i].charCodeAt(0) + 1)
-          break
-        }
-        ts[i] = '0'
-      }
-
-      self.state.rulesV2Stamp = ts.join('')
-    } else {
-      self.state.rulesV2Stamp = rule.timestamp
-    }
-
-    setTimeout(function () { self._updateRulesV2.bind(self)(callback) }, 3 * msecs.second)
-  })
 }
 
 // round-trip to the ledger with retries!
