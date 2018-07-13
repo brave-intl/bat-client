@@ -33,6 +33,17 @@ const LEDGER_SERVERS = {
   }
 }
 
+const PUBLISHER_HOSTS = {
+  'staging': {
+    v1: 'publishers-staging.basicattentiontoken.org',
+    v2: 'publishers-staging.basicattentiontoken.org'
+  },
+  'production': {
+    v1: 'publishers.basicattentiontoken.org',
+    v2: 'publishers.basicattentiontoken.org'
+  }
+}
+
 const Client = function (personaId, options, state) {
   if (!(this instanceof Client)) return new Client(personaId, options, state)
 
@@ -646,6 +657,22 @@ Client.prototype.busyP = function () {
   })
 
   return busyP
+}
+
+Client.prototype.fetchPublisherInfo = function (callback) {
+  const self = this
+
+  if (self.options.version === 'v1') return
+
+  const path = '/api/v1/public/channels'
+  const hostname = PUBLISHER_HOSTS[self.options.environment][self.options.version]
+
+  self._retryTrip(self, { path: path, method: 'GET', altHostname: hostname, useProxy: false }, function (err, response, body) {
+    self._log('verifiedPublishers', { method: 'GET', path: path, errP: !!err })
+    if (err) return callback(err)
+
+    callback(null, body)
+  })
 }
 
 Client.prototype.publisherTimestamp = function (callback) {

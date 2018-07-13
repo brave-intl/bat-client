@@ -4,6 +4,27 @@ const test = require('tape')
 
 const options = { debugP: true, version: 'v2', environment: 'staging' }
 
+test('fetchPublisherInfo', async (t) => {
+  t.plan(3)
+
+  // Use staging endpoint
+  const fetchOptions = {
+    debugP: true,
+    version: 'v2',
+    environment: 'staging',
+    server: 'https://publishers-staging.basicattentiontoken.org'
+  }
+
+  const client = new Ledger(null, fetchOptions)
+  client.sync(function () {
+    client.fetchPublisherInfo(function (err, result) {
+      t.false(err)
+      t.true(Array.isArray(result))
+      t.equal(result[0].length, 3)
+    })
+  })
+})
+
 test('recoverWallet', async (t) => {
   t.plan(6)
   const client = new Ledger(null, options)
