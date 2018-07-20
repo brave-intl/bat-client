@@ -1,7 +1,6 @@
 const crypto = require('crypto')
 const http = require('http')
 const https = require('https')
-const path = require('path')
 const querystring = require('querystring')
 const url = require('url')
 const braveCrypto = require('brave-crypto')
@@ -16,8 +15,6 @@ const { sign } = require('http-request-signature')
 const stringify = require('json-stable-stringify')
 const underscore = require('underscore')
 const uuid = require('uuid')
-
-const batPublisher = require('bat-publisher')
 
 const SEED_LENGTH = 32
 const BATCH_SIZE = 10
@@ -91,10 +88,6 @@ const Client = function (personaId, options, state) {
   self.state = underscore.defaults(state || {}, { personaId: personaId, options: self.options, ballots: [], batch: {}, transactions: [] })
   self.logging = []
 
-  if (self.options.rulesTestP) {
-    self.state.updatesStamp = now - 1
-    if (self.options.verboseP) self.state.updatesDate = new Date(self.state.updatesStamp)
-  }
   if ((self.state.updatesStamp) && (self.state.updatesStamp > later)) {
     self.state.updatesStamp = later
     if (self.options.verboseP) self.state.updatesDate = new Date(self.state.updatesStamp)
@@ -138,63 +131,10 @@ Client.prototype.sync = function (callback) {
     return self.setTimeUntilReconcile(null, callback)
   }
 
-// begin: legacy updates...
-  if (self.state.ruleset) {
-    self.state.ruleset.forEach(function (rule) {
-      if (rule.consequent) return
-
-      self.state.updatesStamp = now - 1
-      if (self.options.verboseP) self.state.updatesDate = new Date(self.state.updatesStamp)
-    })
-    delete self.state.ruleset
-  }
-  if (!self.state.ruleset) {
-    self.state.ruleset = [
-      {
-        condition: '/^[a-z][a-z].gov$/.test(SLD)',
-        consequent: 'QLD + \'.\' + SLD',
-        description: 'governmental sites'
-      },
-      {
-        condition: "TLD === 'gov' || /^go.[a-z][a-z]$/.test(TLD) || /^gov.[a-z][a-z]$/.test(TLD)",
-        consequent: 'SLD',
-        description: 'governmental sites'
-      },
-      {
-        condition: "SLD === 'keybase.pub'",
-        consequent: 'QLD + \'.\' + SLD',
-        description: 'keybase users'
-      },
-      {
-        condition: true,
-        consequent: 'SLD',
-        description: 'the default rule'
-      }
-    ]
-  }
   if (self.state.verifiedPublishers) {
     delete self.state.verifiedPublishers
     self.state.updatesStamp = now - 1
     if (self.options.verboseP) self.state.updatesDate = new Date(self.state.updatesStamp)
-  }
-// end: legacy updates...
-
-  if ((self.credentials) && (!self.state.rulesV2Stamp)) {
-    try {
-      const bootstrap = require(path.join(__dirname, 'bootstrap'))
-
-      underscore.extend(self.state, bootstrap)
-      return callback(null, self.state, msecs.minute)
-    } catch (ex) {}
-  }
-
-  if (self.state.updatesStamp < now) {
-    return self._updateRules(function (err) {
-      if (err) self._log('_updateRules', { message: err.toString() })
-
-      self._log('sync', { delayTime: msecs.minute })
-      callback(null, self.state, msecs.minute)
-    })
   }
 
   if (!self.credentials) self.credentials = {}
@@ -691,43 +631,6 @@ Client.prototype.publisherTimestamp = function (callback) {
   })
 }
 
-Client.prototype.publisherInfo = function (publisher, callback) {
-  const self = this
-
-  let path
-
-  if (self.options.version === 'v1') return
-
-  path = '/v3/publisher/identity?' + querystring.stringify({ publisher: publisher })
-  self._retryTrip(self, { path: path, method: 'GET', useProxy: true }, function (err, response, body) {
-    self._log('publisherInfo', { method: 'GET', path: path, errP: !!err })
-    if (err) return callback(err, null, response)
-
-    callback(null, body)
-  })
-}
-
-// batched interface... now a single callback invocation
-
-Client.prototype.publishersInfo = function (publishers, callback) {
-  if (this.options.version === 'v1') return
-
-  // initial version is still serialized, future versions will use a new API call.
-
-  if (!Array.isArray(publishers)) publishers = [ publishers ]
-  if (publishers.length === 0) return
-
-  if (typeof this.batches === 'undefined') this.batches = 0
-  if (!this.publishers) this.publishers = { requests: [], results: [], uniques: [] }
-  publishers.forEach((publisher) => {
-    if (this.publishers.uniques.indexOf(publisher) !== -1) return
-
-    this.publishers.requests.push(publisher)
-    this.publishers.uniques.push(publisher)
-  })
-  this._publishersInfo(callback)
-}
-
 Client.prototype.memo = function (who, args) {
   let what
 
@@ -741,44 +644,6 @@ Client.prototype.memo = function (who, args) {
 
   this.state.memos.push(JSON.stringify({ who: who, what: what || {}, when: underscore.now() }))
   this._log(who, args)
-}
-
-Client.prototype._publishersInfo = function (callback) {
-  const self = this
-
-  const publisher = underscore.first(self.publishers.requests)
-  let results
-
-  if (self.batches > 3) return
-
-  if (!publisher) {
-    if (self.batches > 0) return
-
-    results = self.publishers.results
-    self.publishers.results = []
-    self.publishers.uniques = []
-    if (results.length) callback(null, results)
-    return
-  }
-
-  self.publishers.requests = underscore.rest(self.publishers.requests)
-
-  self.batches++
-  self.publisherInfo(publisher, (err, result, response) => {
-    if ((err) && (response) && (response.statusCode === 429)) {
-      return setTimeout(() => {
-        self.batches--
-        self.publishersInfo(publisher, callback)
-      }, random.randomInt({ min: 1 * msecs.minute, max: 2 * msecs.minute }))
-    }
-
-    self.batches--
-    self.publishers.results.push(((!err) && (result) ? result : { publisher: publisher, err: err }))
-
-    self._publishersInfo.bind(self)(callback)
-  })
-
-  setTimeout(() => self._publishersInfo.bind(self)(callback), random.randomInt({ min: 250, max: 500 }))
 }
 
 Client.prototype.getPromotion = function (lang, forPaymentId, callback) {
@@ -1026,12 +891,8 @@ Client.prototype._currentReconcile = function (callback) {
         self.state.reconcileStamp = underscore.now() + (self.state.properties.days * msecs.day)
         if (self.options.verboseP) self.state.reconcileDate = new Date(self.state.reconcileStamp)
 
-        self._updateRules(function (err) {
-          if (err) self._log('_updateRules', { message: err.toString() })
-
-          self._log('_currentReconcile', { delayTime: msecs.minute })
-          callback(null, self.state, msecs.minute)
-        })
+        self._log('_currentReconcile', { delayTime: msecs.minute })
+        callback(null, self.state, msecs.minute)
       })
     }
 
@@ -1310,79 +1171,6 @@ Client.prototype._log = function (who, args) {
 
   if (debugP) console.log(JSON.stringify({ who: who, what: args || {}, when: underscore.now() }, null, 2))
   if (loggingP) this.logging.push({ who: who, what: args || {}, when: underscore.now() })
-}
-
-Client.prototype._updateRules = function (callback) {
-  const self = this
-
-  let path
-
-  self.state.updatesStamp = underscore.now() + msecs.hour
-  if (self.options.verboseP) self.state.updatesDate = new Date(self.state.updatesStamp)
-
-  path = '/v1/publisher/ruleset?consequential=true'
-  self._retryTrip(self, { path: path, method: 'GET' }, function (err, response, ruleset) {
-    let validity
-
-    self._log('_updateRules', { method: 'GET', path: '/v1/publisher/ruleset', errP: !!err })
-    if (err) return callback(err)
-
-    validity = Joi.validate(ruleset, batPublisher.schema)
-    if (validity.error) {
-      self._log('_updateRules', { error: validity.error })
-      return callback(new Error(validity.error))
-    }
-
-    if (!underscore.isEqual(self.state.ruleset || [], ruleset)) {
-      self.state.ruleset = ruleset
-
-      batPublisher.rules = ruleset
-    }
-
-    self._updateRulesV2(callback)
-  })
-}
-
-Client.prototype._updateRulesV2 = function (callback) {
-  const self = this
-
-  let path
-
-  self.state.updatesStamp = underscore.now() + msecs.hour
-  if (self.options.verboseP) self.state.updatesDate = new Date(self.state.updatesStamp)
-
-  path = '/v2/publisher/ruleset?limit=512&excludedOnly=false'
-  if (self.state.rulesV2Stamp) path += '&timestamp=' + self.state.rulesV2Stamp
-  self._retryTrip(self, { path: path, method: 'GET' }, function (err, response, ruleset) {
-    let c, i, rule, ts
-
-    self._log('_updateRules', { method: 'GET', path: '/v2/publisher/ruleset', errP: !!err })
-    if (err) return callback(err)
-
-    if (ruleset.length === 0) return callback()
-
-    if (!self.state.rulesetV2) self.state.rulesetV2 = []
-    self.state.rulesetV2 = self.state.rulesetV2.concat(ruleset)
-    rule = underscore.last(ruleset)
-
-    if (ruleset.length < 512) {
-      ts = rule.timestamp.split('')
-      for (i = ts.length - 1; i >= 0; i--) {
-        c = ts[i]
-        if (c < '9') {
-          ts[i] = String.fromCharCode(ts[i].charCodeAt(0) + 1)
-          break
-        }
-        ts[i] = '0'
-      }
-
-      self.state.rulesV2Stamp = ts.join('')
-    } else {
-      self.state.rulesV2Stamp = rule.timestamp
-    }
-
-    setTimeout(function () { self._updateRulesV2.bind(self)(callback) }, 3 * msecs.second)
-  })
 }
 
 // round-trip to the ledger with retries!
