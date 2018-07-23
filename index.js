@@ -392,7 +392,7 @@ Client.prototype.reconcile = function (viewingId, callback) {
     return callback(null, null, delayTime)
   }
   if (this.state.currentReconcile) {
-    delayTime = random.randomInt({ min: msecs.second, max: (this.options.debugP ? 1 : 10) * msecs.minute })
+    delayTime = random.intSync({ min: msecs.second, max: (this.options.debugP ? 1 : 10) * msecs.minute })
     this._log('reconcile', { reason: 'already reconciling', delayTime: delayTime, reconcileStamp: this.state.reconcileStamp })
     return callback(null, null, delayTime)
   }
@@ -413,7 +413,7 @@ Client.prototype.reconcile = function (viewingId, callback) {
     for (i = self.state.transactions.length - 1; i >= 0; i--) {
       if (self.state.transactions[i].surveyorId !== surveyorInfo.surveyorId) continue
 
-      delayTime = random.randomInt({ min: msecs.second, max: (self.options.debugP ? 1 : 10) * msecs.minute })
+      delayTime = random.intSync({ min: msecs.second, max: (self.options.debugP ? 1 : 10) * msecs.minute })
       self._log('reconcile',
           { reason: 'awaiting a new surveyorId', delayTime: delayTime, surveyorId: surveyorInfo.surveyorId })
       return callback(null, null, delayTime)
@@ -855,7 +855,7 @@ Client.prototype._currentReconcile = function (callback) {
         })
       self.state.paymentInfo[body.altcurrency ? body.altcurrency : 'btc'] = alt
 
-      delayTime = random.randomInt({ min: msecs.second, max: (self.options.debugP ? 1 : 10) * msecs.minute })
+      delayTime = random.intSync({ min: msecs.second, max: (self.options.debugP ? 1 : 10) * msecs.minute })
       self._log('_currentReconcile', { reason: 'balance < btc', balance: body.balance, alt: alt, delayTime: delayTime })
       return callback(null, self.state, delayTime)
     }
@@ -1056,7 +1056,7 @@ Client.prototype._proofBatch = function (batch, callback) {
       ballot.proofBallot = item.proof
     })
 
-    const delayTime = random.randomInt({ min: 10 * msecs.second, max: 1 * msecs.minute })
+    const delayTime = random.intSync({ min: 10 * msecs.second, max: 1 * msecs.minute })
     self._log('_proofBallot', { delayTime: delayTime })
     callback(null, self.state, delayTime)
   })
@@ -1105,7 +1105,7 @@ Client.prototype._prepareVoteBatch = function (callback) {
 
   self.state.batch = batch
 
-  const delayTime = random.randomInt({ min: 10 * msecs.second, max: 1 * msecs.minute })
+  const delayTime = random.intSync({ min: 10 * msecs.second, max: 1 * msecs.minute })
   callback(null, self.state, delayTime)
 }
 
@@ -1150,7 +1150,7 @@ Client.prototype._voteBatch = function (callback) {
       delete self.state.batch[keys[0]]
     }
 
-    const delayTime = random.randomInt({ min: 10 * msecs.second, max: 1 * msecs.minute })
+    const delayTime = random.intSync({ min: 10 * msecs.second, max: 1 * msecs.minute })
     self._log('_voteBatch', { delayTime: delayTime })
     callback(null, self.state, delayTime)
   })
