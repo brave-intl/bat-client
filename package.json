@@ -1,6 +1,6 @@
 {
   "name": "bat-client",
-  "version": "4.0.0",
+  "version": "4.0.1",
   "description": "An example of client code for the BAT.",
   "main": "index.js",
   "scripts": {
