@@ -1,6 +1,6 @@
 {
   "name": "bat-client",
-  "version": "4.0.1",
+  "version": "4.0.2",
   "description": "An example of client code for the BAT.",
   "main": "index.js",
   "scripts": {
@@ -32,12 +32,11 @@
   "dependencies": {
     "@ambassify/backoff-strategies": "1.0.0",
     "bat-balance": "^1.0.7",
-    "brave-crypto": "^0.1.0",
+    "brave-crypto": "^0.2.0",
     "http-request-signature": "0.0.2",
     "joi": "^13.1.2",
     "json-stable-stringify": "1.0.1",
     "node-anonize2-relic-emscripten": "^0.3.3",
-    "random-lib": "^3.0.0",
     "underscore": "1.8.3",
     "uuid": "3.1.0"
   },
