@@ -660,7 +660,7 @@ Client.prototype.getPromotion = function (lang, forPaymentId, callback) {
     if (typeof callback !== 'function') throw new Error('getPromotion missing callback parameter')
   }
 
-  path = '/v1/grants'
+  path = '/v2/grants'
   if (lang) params.lang = lang
   if (forPaymentId) {
     params.paymentId = paymentId = forPaymentId
@@ -684,7 +684,7 @@ Client.prototype.setPromotion = function (promotionId, captchaResponse, callback
 
   if (self.options.version === 'v1') return
 
-  path = '/v1/grants/' + self.state.properties.wallet.paymentId
+  path = '/v2/grants/' + self.state.properties.wallet.paymentId
   self._retryTrip(self, { path: path, method: 'PUT', payload: { promotionId, captchaResponse } }, function (err, response, body) {
     self._log('setPromotion', { method: 'PUT', path: path, errP: !!err })
     if (err) return callback(err, null, response)
@@ -696,12 +696,12 @@ Client.prototype.setPromotion = function (promotionId, captchaResponse, callback
 Client.prototype.getPromotionCaptcha = function (promotionId, callback) {
   const self = this
 
-  const path = '/v1/captchas/' + self.state.properties.wallet.paymentId
+  const path = '/v2/captchas/' + self.state.properties.wallet.paymentId
   self._retryTrip(self, { path: path, method: 'GET', binaryP: true }, function (err, response, body) {
     self._log('getPromotionCaptcha', { method: 'GET', path: path, errP: !!err })
     if (err) return callback(err, null, response)
 
-    callback(null, body)
+    callback(null, body, response)
   })
 }
 
