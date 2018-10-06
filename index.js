@@ -359,17 +359,50 @@ Client.prototype.isReadyToReconcile = function (synopsis, fuzzyCallback) {
   return ((typeof delayTime === 'boolean') ? delayTime : (delayTime <= 0))
 }
 
-Client.prototype.reconcile = function (viewingId, callback) {
+Client.prototype.reconcile = function (viewingId, options, callback) {
   const self = this
 
   const prefix = self.options.prefix + '/surveyor/contribution/current/'
   let delayTime, path, schema, validity
+  let fee = 0
 
-  if (!callback) {
+  if (typeof viewingId === 'function') {
     callback = viewingId
+    options = {}
     viewingId = null
+  } else if (typeof options === 'function') {
+    callback = options
+    options = {}
   }
   if (typeof callback !== 'function') throw new Error('reconcile missing callback parameter')
+
+  if (Array.isArray(options.directions)) {
+    options.directions.forEach((direction) => {
+      const amount = direction.amount
+
+      if (!direction.publisher) throw new Error('reconcile direction missing publisher')
+
+      if ((!Number.isInteger(amount)) || (amount < 0)) {
+        throw new Error('reconcile direction amount invalid for ' + direction.publisher)
+      }
+
+      if (!Number.isInteger(amount)) throw new Error('reconcile direction amount invalid for ' + direction.publisher)
+
+      if ((direction.currency) && (direction.currency !== 'BAT')) {
+        throw new Error('reconcile direction currency invalid for ' + direction.publisher)
+      }
+
+      fee += amount
+    })
+
+    if ((fee > 0) && (!options.immediateP)) {
+      const currency = self.state.properties.fee.currency
+
+      if (currency !== 'BAT') throw new Error('invalid recurring currency ' + currency)
+
+      fee += self.state.properties.fee.amount
+    }
+  }
 
   try {
     if (!self.state.reconcileStamp) throw new Error('Ledger client initialization incomplete.')
@@ -410,19 +443,29 @@ Client.prototype.reconcile = function (viewingId, callback) {
     self._log('reconcile', { method: 'GET', path: prefix + '...', errP: !!err })
     if (err) return callback(err)
 
-    for (i = self.state.transactions.length - 1; i >= 0; i--) {
-      if (self.state.transactions[i].surveyorId !== surveyorInfo.surveyorId) continue
+    if (!options.immediateP) {
+      for (i = self.state.transactions.length - 1; i >= 0; i--) {
+        if (self.state.transactions[i].surveyorId !== surveyorInfo.surveyorId) continue
 
-      delayTime = random.randomInt({ min: msecs.second, max: (self.options.debugP ? 1 : 10) * msecs.minute })
-      self._log('reconcile',
-          { reason: 'awaiting a new surveyorId', delayTime: delayTime, surveyorId: surveyorInfo.surveyorId })
-      return callback(null, null, delayTime)
+        delayTime = random.randomInt({ min: msecs.second, max: (self.options.debugP ? 1 : 10) * msecs.minute })
+        self._log('reconcile',
+                  { reason: 'awaiting a new surveyorId', delayTime: delayTime, surveyorId: surveyorInfo.surveyorId })
+        return callback(null, null, delayTime)
+      }
     }
 
-    self.state.currentReconcile = { viewingId: viewingId, surveyorInfo: surveyorInfo, timestamp: 0 }
+    self.state.currentReconcile = { viewingId: viewingId, surveyorInfo: surveyorInfo, timestamp: 0, fee: fee }
     self._log('reconcile', { delayTime: msecs.minute })
     callback(null, self.state, msecs.minute)
   })
+}
+
+Client.prototype.getTransaction = function (viewingId) {
+  for (let i = this.state.transactions.length - 1; i >= 0; i--) {
+    const transaction = this.state.transactions[i]
+
+    if (transaction.viewingId === viewingId) return transaction
+  }
 }
 
 Client.prototype.ballots = function (viewingId) {
@@ -821,8 +864,9 @@ Client.prototype._registerPersona = function (callback) {
 Client.prototype._currentReconcile = function (callback) {
   const self = this
 
-  const amount = self.state.properties.fee.amount
-  const currency = self.state.properties.fee.currency
+  const directed = self.state.currencyReconcile.fee
+  const amount = directed ? directed.amount : self.state.properties.fee.amount
+  const currency = directed ? directed.currency : self.state.properties.fee.currency
   const prefix = self.options.prefix + '/wallet/'
   const surveyorInfo = self.state.currentReconcile.surveyorInfo
   const viewingId = self.state.currentReconcile.viewingId
